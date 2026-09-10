@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# study-helper-web
 
-## Getting Started
+Next.js frontend for Study Helper. See the [root README](../README.md) for what
+the project is and why it is built this way.
 
-First, run the development server:
+## Running
+
+**Node 20+ and pnpm**, not npm — npm has a bug with Tailwind's native optional
+dependencies.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The API base URL comes from `NEXT_PUBLIC_API_URL` in `.env.local`, defaulting to
+`http://localhost:8000`. The backend must be running: start it from
+`study-helper-beta/` before loading a quiz.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## What's here
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| | |
+|---|---|
+| `app/page.tsx` | Certification picker, plus the accuracy story that motivates the product. |
+| `app/quiz/` | The quiz flow: answer, feedback, explanation when wrong, report control. |
+| `app/weak-spots/` | Pattern analysis over answer history. |
+| `lib/api.ts` | Typed client mirroring the FastAPI response models. |
+| `lib/session.ts` | Guest user id in `localStorage` — there is no auth yet. |
+| `components/Markdown.tsx` | Question text is Markdown, including fenced JSON for IAM policies. |
 
-## Learn More
+## Things that will surprise you
 
-To learn more about Next.js, take a look at the following resources:
+**Questions run out.** A 404 from `/questions/next` means every approved
+question has been answered. That is a normal end state, not an error — the bank
+only serves human-reviewed questions rather than inventing more on demand.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**The answer is not in the DOM.** `/questions/next` never returns
+`correct_index` or `explanation`; both arrive only after an attempt is
+submitted, so the frontend cannot leak the answer.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**A missing explanation is not a failure.** When the model API is out of quota,
+`POST /attempts` still returns correctness with an `explanation_error`, and the
+UI says why the explanation is missing. The answer still counted.
