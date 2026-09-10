@@ -1,0 +1,14 @@
+# Never commit the Gemini key. This directory isn't a git repo today, but
+# it will be if the project is ever published as a portfolio piece, and by
+# then .env will have been sitting here for months.
+.env
+
+# Raw model output kept after a parse failure — useful locally for repair,
+# not worth versioning.
+failed_generations/
+
+.venv/
+__pycache__/
+*.db
+*.db.bak-*
+.pytest_cache/

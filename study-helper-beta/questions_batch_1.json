@@ -1,0 +1,162 @@
+[
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "An IAM role has an identity-based policy allowing s3:GetObject on arn:aws:s3:::reports/*. A permissions boundary is attached to the same role allowing only s3:PutObject on arn:aws:s3:::reports/*. There are no resource-based policies, SCPs, or explicit deny statements anywhere. The role calls s3:GetObject on arn:aws:s3:::reports/q3.pdf. What is the result, and why?",
+    "options": [
+      "Denied, because an action must be allowed by both the identity-based policy and the permissions boundary",
+      "Allowed, because the identity-based policy explicitly permits the action and no explicit deny exists",
+      "Allowed, because a permissions boundary only caps privilege escalation and does not affect read operations",
+      "Denied, because a permissions boundary replaces the identity-based policy rather than intersecting with it"
+    ],
+    "correct_index": 0,
+    "explanation": "A permissions boundary sets the maximum permissions an identity can have. The effective permissions are the intersection of the identity-based policy and the boundary: an action must be allowed by BOTH. Here the identity policy allows s3:GetObject but the boundary allows only s3:PutObject, so the intersection for GetObject is empty and the request is denied by implicit deny.\n\nOption B is wrong because the absence of an explicit deny is not sufficient — the action must be affirmatively allowed by every applicable policy type in the evaluation chain, and a boundary is one of them.\n\nOption C is wrong because a boundary applies to all actions the principal attempts, not only to privilege-escalation actions.\n\nOption D is wrong because a boundary does not replace the identity-based policy. It does not grant any permission on its own — a boundary allowing s3:PutObject would not permit PutObject either, unless the identity-based policy also allowed it.",
+    "concept_tags": ["IAM policy evaluation logic", "permissions boundaries", "explicit deny vs allow"],
+    "question_type": "conceptual",
+    "difficulty": "medium"
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "An application uses an Amazon RDS for PostgreSQL Multi-AZ DB instance deployment (one primary, one standby). During an unplanned outage of the primary, the operations team observes that the application cannot reach the database for a period, then reconnects successfully without any configuration change. Which pair of statements correctly describes this Multi-AZ DB instance behaviour?",
+    "options": [
+      "Failover typically completes in 60–120 seconds, and the standby cannot serve read traffic before failover",
+      "Failover typically completes in under 5 seconds, and the standby cannot serve read traffic before failover",
+      "Failover typically completes in 60–120 seconds, and the standby serves read traffic to offload the primary",
+      "Failover typically completes in 15–30 minutes, and the standby serves read traffic to offload the primary"
+    ],
+    "correct_index": 0,
+    "explanation": "AWS documents that failover times for a Multi-AZ DB instance deployment are typically 60–120 seconds, and that large transactions or a lengthy recovery process can increase that. Failover works by repointing the DNS record for the endpoint to the promoted standby, which is why the application reconnects to the same endpoint without configuration changes.\n\nThe standby in a Multi-AZ DB instance deployment is passive: it does not serve read or write traffic. Read scaling requires read replicas, or a Multi-AZ DB cluster deployment, which has two readable standbys and faster failover (typically under 35 seconds) but supports only MySQL and PostgreSQL.\n\nOption B understates the failover time — sub-5-second failover is not what a DNS-based Multi-AZ DB instance failover provides.\n\nOptions C and D both incorrectly claim the standby serves reads, which conflates Multi-AZ (availability) with read replicas (read scaling). Option D also greatly overstates the failover duration.",
+    "concept_tags": ["Multi-AZ vs read replicas", "RDS failover behaviour"],
+    "question_type": "detail_recall",
+    "difficulty": "medium"
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A session store for a web application must survive the loss of a single node without losing session data, and must support sorted leaderboards computed from session activity. The team is choosing between Amazon ElastiCache for Redis and Amazon ElastiCache for Memcached. Which choice meets the requirements, and for what reason?",
+    "options": [
+      "Redis, because it supports replication with automatic failover and provides sorted set data structures",
+      "Memcached, because its multi-threaded architecture provides higher throughput for session workloads",
+      "Memcached, because it supports replication across nodes and can persist data to disk",
+      "Redis, because it is the only ElastiCache engine that supports horizontal scaling by adding nodes"
+    ],
+    "correct_index": 0,
+    "explanation": "Two requirements decide this. Surviving node loss without data loss requires replication and failover, which Redis supports (replica nodes, Multi-AZ with automatic failover) and Memcached does not — Memcached nodes are independent, and losing one loses the data it held. Sorted leaderboards map directly onto Redis sorted sets; Memcached stores only opaque key-value pairs with no server-side data structures.\n\nOption B is wrong on relevance rather than on fact: Memcached is indeed multi-threaded, but raw throughput doesn't address either stated requirement, and choosing it would fail the durability requirement.\n\nOption C is factually incorrect: Memcached offers neither replication nor persistence.\n\nOption D is factually incorrect: Memcached also scales horizontally by adding nodes to a cluster. Horizontal scaling is not the distinguishing factor here.",
+    "concept_tags": ["ElastiCache Redis vs Memcached", "caching strategies"],
+    "question_type": "conceptual",
+    "difficulty": "medium"
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A DynamoDB table storing IoT telemetry uses deviceId as the partition key and timestamp as the sort key. The fleet contains 50,000 devices, but three gateway devices generate roughly 90% of all writes. The team observes write throttling even though consumed capacity across the table is well under the provisioned total. What is the most likely cause, and which change best addresses it?",
+    "options": [
+      "The three gateways create hot partitions; use write sharding by appending a suffix to the partition key for high-volume devices",
+      "The table has too few partitions; increase provisioned write capacity until throttling stops",
+      "The sort key is causing contention; replace timestamp with a randomly generated sort key value",
+      "Eventually consistent writes are queuing; switch the table to strongly consistent writes"
+    ],
+    "correct_index": 0,
+    "explanation": "DynamoDB distributes throughput across partitions based on partition key values. When a small number of key values receive most of the traffic, those partitions become hot and throttle even while table-level consumed capacity looks low — exactly the symptom described. Write sharding spreads a high-volume key across several logical partition key values (for example deviceId#1 through deviceId#N), distributing the load.\n\nOption B treats the symptom: raising provisioned capacity spreads more throughput across all partitions, most of which are idle, so it is expensive and doesn't fix the skew.\n\nOption C misplaces the problem. The sort key orders items within a partition; it does not determine which partition an item lands in, so randomising it wouldn't relieve a hot partition — and it would destroy the time-ordered query pattern the sort key exists for.\n\nOption D describes something that doesn't exist: read consistency settings apply to reads, not writes. DynamoDB writes are not configurable this way.",
+    "concept_tags": ["DynamoDB partition key design", "hot partitions"],
+    "question_type": "conceptual",
+    "difficulty": "hard"
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A DynamoDB table is already in production. A new access pattern requires querying items by an attribute that is not the table's partition key, and the query results must reflect writes immediately, with no replication lag. Which statement correctly describes the available options?",
+    "options": [
+      "A local secondary index would provide strongly consistent reads but cannot be added to an existing table",
+      "A global secondary index would provide strongly consistent reads and can be added to an existing table",
+      "A local secondary index can be added to an existing table and would provide strongly consistent reads",
+      "Neither index type supports strongly consistent reads, so the query must go against the base table"
+    ],
+    "correct_index": 0,
+    "explanation": "The two constraints in this scenario pull in opposite directions, which is the point of the question. Local secondary indexes support strongly consistent reads because they share partitions with the base table and are updated in the same write operation — but they must be defined at table creation time and cannot be added later. Global secondary indexes can be added to an existing table at any time, but are maintained asynchronously and are eventually consistent only.\n\nSo the immediate-consistency requirement can be satisfied only by an LSI, and the LSI is unavailable on an existing table. The practical resolution is to create a new table with the LSI defined and migrate — which is why LSI usage is a decision with long-term consequences.\n\nOption B is wrong on the consistency claim: GSIs never offer strong consistency.\n\nOption C is wrong on the creation-time constraint.\n\nOption D is wrong because LSIs do support strong consistency; the obstacle here is when they can be created, not whether they offer it.",
+    "concept_tags": ["GSI vs LSI", "DynamoDB partition key design"],
+    "question_type": "detail_recall",
+    "difficulty": "hard"
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "Objects are written to S3 Standard and must remain retrievable in milliseconds for their entire life. A lifecycle rule transitions them to S3 Standard-IA. Twenty days after that transition, a second rule would move them to S3 Glacier Instant Retrieval. What is the cost consequence of the second transition at day 20?",
+    "options": [
+      "Objects are charged for the remainder of Standard-IA's 30-day minimum storage duration",
+      "The transition is rejected by S3 and the objects remain in Standard-IA until day 30",
+      "No additional charge applies, because both classes offer millisecond retrieval",
+      "Objects are charged for the remainder of Glacier Instant Retrieval's 90-day minimum storage duration"
+    ],
+    "correct_index": 0,
+    "explanation": "S3 Standard-IA has a 30-day minimum storage duration charge. Deleting or transitioning an object out of Standard-IA before those 30 days elapse still incurs the charge for the full 30 days — so a transition at day 20 leaves 10 days of Standard-IA storage to pay for.\n\nOption B describes an enforcement behaviour that doesn't apply here: the minimum duration is a billing rule, not a blocked operation.\n\nOption C confuses retrieval performance with storage duration billing. Both classes do offer millisecond retrieval, but that has no bearing on the minimum duration charge.\n\nOption D applies the right concept to the wrong class. Glacier Instant Retrieval does have a 90-day minimum duration, but that applies to time spent in Glacier Instant Retrieval going forward — it is not triggered by entering the class.",
+    "concept_tags": ["S3 storage classes", "lifecycle transition rules"],
+    "question_type": "detail_recall",
+    "difficulty": "medium"
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "A media company stores user-uploaded files in S3. Access patterns vary unpredictably per file: some are downloaded constantly for months, others are never touched again after upload, and the pattern for any given file cannot be predicted in advance. All files must remain available in milliseconds. Which approach best optimises cost?",
+    "options": [
+      "Store objects in S3 Intelligent-Tiering and let it move objects between access tiers automatically",
+      "Store objects in S3 Standard-IA, accepting retrieval charges for the files that turn out to be popular",
+      "Write a lifecycle rule transitioning all objects to S3 Standard-IA after 30 days",
+      "Store objects in S3 One Zone-IA to minimise storage cost, since all objects are re-creatable from user uploads"
+    ],
+    "correct_index": 0,
+    "explanation": "S3 Intelligent-Tiering exists precisely for unknown or unpredictable access patterns. It monitors each object individually and moves it between access tiers automatically, charging a small per-object monitoring fee instead of retrieval fees for the frequent and infrequent access tiers. When you cannot predict the pattern per object, that monitoring fee buys you protection from the alternative's downside.\n\nOption B optimises storage cost but exposes the company to per-request retrieval charges on exactly the objects that are accessed most — potentially costing more than S3 Standard.\n\nOption C applies a single time-based rule to objects whose behaviour differs from one another. A file downloaded constantly for months would be moved to Standard-IA at day 30 regardless, incurring retrieval charges on every subsequent access.\n\nOption D changes the durability and availability profile: One Zone-IA stores data in a single Availability Zone. The premise that files are re-creatable is also questionable for user uploads, and the question gives no indication that the company can re-obtain them.",
+    "concept_tags": ["S3 storage classes", "cost optimization"],
+    "question_type": "conceptual",
+    "difficulty": "medium"
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "A batch image-processing job runs for a few hours each night. The job is fully checkpointed: if a worker is interrupted, processing resumes from the last checkpoint on a new worker with no data loss, and the deadline allows for such interruptions. The company wants the lowest possible compute cost. Which EC2 purchasing option fits best?",
+    "options": [
+      "Spot Instances, because the workload tolerates interruption and Spot offers the steepest discount",
+      "Standard Reserved Instances with a 3-year term, because the job runs every night on a predictable schedule",
+      "On-Demand Instances, because the workload runs only a few hours per day and does not justify a commitment",
+      "Compute Savings Plans with a 1-year commitment, because they apply automatically across instance families"
+    ],
+    "correct_index": 0,
+    "explanation": "The deciding characteristic is interruption tolerance. Spot Instances offer the largest discount off On-Demand pricing, with the trade-off that AWS can reclaim capacity with a two-minute warning. A checkpointed batch job with a flexible deadline is the textbook fit for that trade-off — the interruption risk costs nothing in practice.\n\nOption B commits to capacity for three years for a workload that runs only a few hours per night. Reserved Instances are billed for the full term whether or not the instance runs, so most of the commitment would be wasted.\n\nOption C is the safe default and would work, but the workload's interruption tolerance is precisely what allows a cheaper option, so On-Demand is not the lowest-cost answer.\n\nOption D is cheaper than On-Demand and more flexible than Reserved Instances, but a Savings Plan commits to an hourly spend for a year and still costs more than Spot for a workload that can absorb interruptions.",
+    "concept_tags": ["EC2 pricing models", "Reserved vs Savings Plans vs Spot"],
+    "question_type": "conceptual",
+    "difficulty": "medium"
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "EC2 instances in a private subnet write large volumes of data to an S3 bucket in the same Region. All outbound traffic currently routes through a NAT gateway. The team wants to reduce cost without exposing the instances to the internet. Which change achieves this, and why?",
+    "options": [
+      "Add a gateway VPC endpoint for S3, removing S3 traffic from the NAT gateway's per-GB processing charges",
+      "Add an interface VPC endpoint for S3, which eliminates both hourly and per-GB charges for S3 traffic",
+      "Replace the NAT gateway with a NAT instance, which does not charge for data processing",
+      "Move the instances to a public subnet with public IP addresses so traffic bypasses the NAT gateway"
+    ],
+    "correct_index": 0,
+    "explanation": "NAT gateways bill both an hourly charge and a per-GB data processing charge, so high-volume S3 traffic through a NAT gateway is expensive. A gateway VPC endpoint for S3 adds a route in the subnet's route table sending S3-destined traffic directly over the AWS network. Gateway endpoints (available for S3 and DynamoDB) carry no hourly or per-GB endpoint charge, and traffic never traverses the internet — so the instances stay private.\n\nOption B names a real alternative but mis-states its cost. Interface endpoints, which use PrivateLink, do charge per hour and per GB. An interface endpoint for S3 is the right choice when access from on-premises is needed; for cost reduction inside the VPC, the gateway endpoint wins.\n\nOption C would shift data processing cost onto an instance you manage, but it reintroduces the operational burden and single-instance availability limits that NAT gateways exist to remove — and the traffic would still leave the VPC.\n\nOption D directly violates the requirement not to expose the instances to the internet.",
+    "concept_tags": ["NAT Gateway vs VPC endpoints", "data transfer cost"],
+    "question_type": "conceptual",
+    "difficulty": "hard"
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "A team takes daily EBS snapshots of a 500 GB volume containing roughly 100 GB of data that changes very little between days. After 30 days of snapshots, they delete the oldest snapshot to reduce storage cost. What happens to the data, and what determines the storage they are billed for?",
+    "options": [
+      "Snapshots are incremental; deleting one removes only blocks not needed by other snapshots, and remaining snapshots stay usable for full restores",
+      "Snapshots are full copies; deleting one frees its entire size, but restoring from later snapshots is unaffected",
+      "Snapshots are incremental; deleting the oldest invalidates all later snapshots that depend on it",
+      "Snapshots are billed on the full 500 GB volume size regardless of how much data the volume contains"
+    ],
+    "correct_index": 0,
+    "explanation": "EBS snapshots are incremental: after the first snapshot, each subsequent one stores only the blocks that changed since the previous snapshot. Deleting a snapshot removes only the data unique to that snapshot — blocks still referenced by other snapshots are retained. Every remaining snapshot stays independently restorable to a complete volume, which is the property that makes deleting old snapshots safe.\n\nOption B gets the deletion outcome partly right but the billing model wrong: snapshots are not full copies after the first, so a deletion typically frees far less than the snapshot's apparent size.\n\nOption C states the opposite of the actual guarantee and is the intuition the incremental model most often misleads people into. Snapshots are not a dependency chain from the user's point of view.\n\nOption D confuses provisioned volume size with snapshot storage. Snapshot billing is based on the data actually stored, not the volume's provisioned capacity — so a 500 GB volume holding 100 GB of data does not incur 500 GB of snapshot storage.",
+    "concept_tags": ["EBS snapshot cost", "storage cost optimization"],
+    "question_type": "detail_recall",
+    "difficulty": "medium"
+  }
+]

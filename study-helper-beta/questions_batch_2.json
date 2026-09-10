@@ -1,0 +1,108 @@
+[
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A team stores an RDS database credential in AWS Secrets Manager and wants it rotated automatically. A colleague states that enabling rotation always means writing and maintaining a Lambda function. Which statement is correct?",
+    "options": [
+      "For most managed secrets, Secrets Manager uses managed rotation, which does not use a Lambda function at all.",
+      "All Secrets Manager rotation is carried out by a Lambda function that you configure and maintain.",
+      "Rotation runs without a Lambda function only if the secret is stored in Systems Manager Parameter Store instead.",
+      "Managed rotation still requires a Lambda function, but Secrets Manager generates and owns it on your behalf."
+    ],
+    "correct_index": 0,
+    "explanation": "Secrets Manager supports more than one form of rotation. For most managed secrets it uses managed rotation, where the service configures and manages rotation itself and no Lambda function is involved. A second form, managed external secrets rotation, covers secrets held by Secrets Manager partners and likewise requires no Lambda function. Rotation by Lambda function is the third form, used for other types of secrets. So the blanket claim that rotation always means owning a Lambda function is wrong: it holds only for the third case.",
+    "concept_tags": ["Secrets Manager", "credential rotation", "managed rotation"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotating-secrets.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "An application runs on Amazon RDS for PostgreSQL in a Multi-AZ DB instance deployment. Read queries are saturating the primary, and an engineer proposes pointing the reporting workload at the standby replica, reasoning that it is already synchronously replicated and otherwise idle. What is the outcome, and what should be done instead?",
+    "options": [
+      "The standby in a Multi-AZ DB instance deployment cannot serve read traffic; use a read replica or a Multi-AZ DB cluster deployment to offload reads.",
+      "The standby can serve read traffic once the reader endpoint is enabled on the DB instance, so no change of deployment type is needed.",
+      "The standby can serve reads, but only eventually consistent ones, which is acceptable for a reporting workload.",
+      "The standby can serve reads only while the primary is failing over, so the reporting workload will succeed intermittently."
+    ],
+    "correct_index": 0,
+    "explanation": "Multi-AZ DB instance deployment is a high availability feature, not a read scaling one. The synchronous standby exists to take over on failure, and the documentation is explicit that you cannot use a standby replica to serve read traffic. To serve read-only traffic you need either a read replica or a Multi-AZ DB cluster deployment, which does provide readable standbys. The engineer's reasoning — that the data is already there and the instance is idle — is exactly what makes this a common wrong answer.",
+    "concept_tags": ["RDS Multi-AZ", "read replicas", "high availability vs read scaling"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZSingleStandby.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "Worker instances consume from an Amazon SQS standard queue created with default settings. Each message takes roughly 90 seconds to process. Operators observe that many messages are processed twice, by two different workers, and that duplicates appear even when no worker has crashed. What is the most likely cause?",
+    "options": [
+      "The queue's default visibility timeout of 30 seconds expires while the message is still being processed, so it becomes visible again and another consumer receives it.",
+      "Standard queues deliver every message exactly once, so the duplicates must come from producers sending each message twice.",
+      "No dead-letter queue is configured, so failed messages are redelivered to the main queue in a loop.",
+      "The consumers use short polling, which returns the same message to multiple consumers within one polling interval."
+    ],
+    "correct_index": 0,
+    "explanation": "The visibility timeout starts when a message is delivered to a consumer, and the default for a queue is 30 seconds. If the consumer has not deleted the message by the time the timeout expires, the message becomes visible in the queue again and can be retrieved by the same or a different consumer — which is precisely what 90 seconds of processing against a 30 second timeout produces, with no crash required. The fix is to align the timeout with real processing time, or to extend it during processing with ChangeMessageVisibility, keeping in mind the 12 hour maximum measured from first receipt.",
+    "concept_tags": ["SQS visibility timeout", "duplicate processing", "message consumers"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A DynamoDB table is already live in production. Its primary key is a composite of `customerId` (partition key) and `orderDate` (sort key). A new access pattern needs to query the same `customerId` by `status`, and the application requires strongly consistent reads on that query. What can the team do?",
+    "options": [
+      "Nothing satisfies both requirements on the existing table: a local secondary index would give strong consistency but cannot be added after table creation, while a global secondary index can be added but supports eventual consistency only.",
+      "Add a local secondary index on `status`, since local secondary indexes can be added to an existing table as an online operation.",
+      "Add a global secondary index on `customerId` and `status` and issue the query with ConsistentRead set to true.",
+      "Add a global secondary index and query it normally, because indexes that share the base table's partition key are always strongly consistent."
+    ],
+    "correct_index": 0,
+    "explanation": "Local secondary indexes are created at the same time as the table. You cannot add one to an existing table, nor delete one that exists. Global secondary indexes can be added to an existing table, but queries on them support eventual consistency only. Since strong consistency on a secondary index is available only from a local secondary index, neither option satisfies both constraints here — the table would have to be recreated with the local secondary index defined up front, or the requirement for strong consistency relaxed.",
+    "concept_tags": ["DynamoDB", "GSI vs LSI", "read consistency"],
+    "question_type": "detail_recall",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/SecondaryIndexes.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A DynamoDB table stores IoT telemetry with `deviceId` as the partition key and a local secondary index defined on a second attribute. A handful of high-traffic devices accumulate far more readings than the rest. Beyond uneven throughput, what specific failure should the architect anticipate for those devices, and why does it not affect a design that uses a global secondary index instead?",
+    "options": [
+      "Writes for a device will start failing once the total size of all indexed items for that partition key value exceeds 10 GB, a restriction that applies to local secondary indexes and not to global secondary indexes.",
+      "Queries for that device will begin returning partial result sets once the item collection exceeds 10 GB, while a global secondary index would page through them transparently.",
+      "The local secondary index will silently stop being updated for that device, whereas a global secondary index is updated asynchronously and so keeps pace.",
+      "Reads for that device will be throttled because a local secondary index has its own provisioned capacity that is separate from the base table's."
+    ],
+    "correct_index": 0,
+    "explanation": "For a local secondary index, the total size of all indexed items for any one partition key value must be 10 GB or less; there is no equivalent size restriction for global secondary indexes. A skewed partition key therefore has a hard ceiling, not just a performance cost, and the ceiling is reached by the busiest keys first. Option 4 also inverts the capacity model: a local secondary index draws read and write capacity from the base table, while a global secondary index is the one with its own provisioned throughput settings.",
+    "concept_tags": ["DynamoDB", "partition key design", "hot partitions", "GSI vs LSI"],
+    "question_type": "conceptual",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/SecondaryIndexes.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "A team writes log objects to S3 Standard and configures a lifecycle rule that transitions them to S3 Standard-IA 0 days after creation, because the logs are cold within hours. A separate rule expires the objects 10 days after creation. What is the effect on the S3 bill?",
+    "options": [
+      "The transition is accepted, but each object still incurs the 30-day minimum storage duration charge for S3 Standard-IA, so expiring at day 10 is billed for the remaining 20 days as well.",
+      "The lifecycle configuration is rejected, because objects must remain in S3 Standard for at least 30 days before transitioning to S3 Standard-IA.",
+      "The transition is accepted and billing simply stops at expiry, because the minimum storage duration applies only to the S3 Glacier storage classes.",
+      "The transition is accepted, and the minimum storage duration charge is waived because the object is expired by a lifecycle rule rather than deleted directly."
+    ],
+    "correct_index": 0,
+    "explanation": "These are two separate 30-day rules and only one of them was removed. The minimum wait before a lifecycle rule may transition an object to S3 Standard-IA or S3 One Zone-IA no longer exists, so a 0-day transition is a valid configuration. The minimum storage duration charge is unchanged: S3 Standard-IA and S3 One Zone-IA bill for 30 days, and an object deleted, overwritten or transitioned away before that point incurs a pro-rated charge for the remainder. Moving cold data earlier is now permitted; it just does not become cheaper than 30 days of Standard-IA storage.",
+    "concept_tags": ["S3 storage classes", "lifecycle transition rules", "minimum storage duration"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": [
+      "https://aws.amazon.com/about-aws/whats-new/2026/07/s3-removes-30-day-transitions-standard-ia-one-zone-ia/",
+      "https://docs.aws.amazon.com/AmazonS3/latest/userguide/storage-class-intro.html",
+      "https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html"
+    ]
+  }
+]

@@ -1,0 +1,87 @@
+[
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "An IAM user in a member account of an AWS Organization has the `AdministratorAccess` managed policy attached, granting `*` on `*`. An SCP attached to the account's organizational unit does not include `dynamodb:*` in any Allow statement. The user calls `dynamodb:CreateTable` and is denied. What explains this, and what would fix it?",
+    "options": [
+      "An SCP sets the maximum available permissions, and effective permissions are the intersection of the SCP with the identity-based policy — so the SCP must allow the action as well; the SCP has to be amended.",
+      "The SCP must be amended to grant `dynamodb:*` to the user, because an SCP that omits an action revokes it from any identity policy that grants it.",
+      "The user needs a resource-based policy on the table in addition to `AdministratorAccess`, because SCPs disable identity-based policies for the affected service.",
+      "Nothing is wrong with the permissions: `AdministratorAccess` overrides SCPs for IAM users, so the denial must come from a permissions boundary instead."
+    ],
+    "correct_index": 0,
+    "explanation": "An SCP never grants permissions — it defines a guardrail on the maximum available permissions for IAM users and roles in member accounts. Effective permissions are the logical intersection of what the SCPs allow and what the identity-based and resource-based policies allow. If a permission is not allowed by the applicable SCPs, whether implicitly by being absent from an Allow statement or explicitly by a Deny, the user cannot use it even with `AdministratorAccess` and `*/*` attached. Option 2 states the right outcome for the wrong reason: amending the SCP is correct, but the SCP raises the ceiling rather than granting anything to the user.",
+    "concept_tags": ["AWS Organizations", "service control policies", "IAM policy evaluation logic"],
+    "question_type": "conceptual",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A security team attaches an SCP at the root of the organization that denies `ec2:TerminateInstances`, then tests it. They find that an administrator in the management account can still terminate instances, and that an AWS service continues to perform the action through a service-linked role. Which statement describes the actual behaviour of SCPs?",
+    "options": [
+      "SCPs affect only member accounts and never the management account, and they do not restrict permissions attached to service-linked roles.",
+      "SCPs apply to every account including the management account, so the administrator's success indicates the policy has not finished propagating.",
+      "SCPs apply to the management account but exempt its root user, and service-linked roles inherit the exemption from the account they run in.",
+      "SCPs apply to all accounts and all roles, but deny statements are ignored for actions initiated by an AWS service principal rather than by a user."
+    ],
+    "correct_index": 0,
+    "explanation": "Two distinct exemptions apply here, and both are documented as limits on what SCPs can restrict. SCPs affect only the member accounts of an organization and have no effect on users or roles in the management account — which is why AWS recommends not relying on SCPs to constrain that account. Separately, SCPs do not affect any service-linked role: those roles let other AWS services integrate with Organizations and cannot be restricted by an SCP. Note that within a member account an SCP does apply to the root user, so the exemption is about the management account, not about root users in general.",
+    "concept_tags": ["AWS Organizations", "service control policies", "service-linked roles"],
+    "question_type": "detail_recall",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A CloudFront distribution serves private content from an S3 bucket origin using a legacy origin access identity (OAI). The team now needs the bucket's objects encrypted with SSE-KMS, and needs viewers to be able to upload through the distribution with `PUT` requests. What must change?",
+    "options": [
+      "Migrate to origin access control (OAC), because OAI supports neither SSE-KMS nor dynamic requests such as PUT, POST and DELETE.",
+      "Keep the OAI and add `kms:Decrypt` to the OAI principal in the bucket policy, since OAI supports SSE-KMS once the key policy permits it.",
+      "Keep the OAI and reconfigure the bucket as a static website endpoint, which enables both SSE-KMS and dynamic requests.",
+      "Migrate to origin access control (OAC), because OAI supports SSE-KMS but cannot sign requests to buckets in Regions launched after January 2023."
+    ],
+    "correct_index": 0,
+    "explanation": "The documentation is explicit that OAI does not support S3 server-side encryption with AWS KMS, dynamic requests (PUT, POST or DELETE) to Amazon S3, or Regions launched after January 2023, and recommends OAC instead for exactly these reasons. Both requirements here fall outside what OAI can do, so a key policy change cannot rescue it. Option 3 makes it worse: a bucket configured as a website endpoint must be set up as a custom origin, where neither OAC nor OAI can be used at all.",
+    "concept_tags": ["CloudFront", "origin access control", "S3 SSE-KMS"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "A bucket has held 40 TB of objects for two years. To meet a new compliance requirement, an architect enables S3 Cross-Region Replication to a bucket in another Region and confirms the rule is active. Days later, only recently uploaded objects exist in the destination. What is happening, and what is needed?",
+    "options": [
+      "Live replication only covers objects written after the rule is configured; replicating the pre-existing 40 TB requires an on-demand S3 Batch Replication job.",
+      "The replication rule is filtering on a prefix by default, so the two years of objects will replicate once the filter is removed from the rule.",
+      "Cross-Region Replication backfills existing objects asynchronously over 24-48 hours, so the architect should wait before intervening.",
+      "Existing objects replicate only once each is next read or overwritten, so a full copy requires touching every object in the source bucket."
+    ],
+    "correct_index": 0,
+    "explanation": "Live replication — the family that Cross-Region Replication and Same-Region Replication belong to — automatically copies new and updated objects as they are written to the source bucket, and explicitly does not replicate any object that existed before replication was set up. Objects already in the bucket are copied by S3 Batch Replication, an on-demand job that also handles objects with a FAILED replication status and objects being sent to a newly added destination. Nothing about waiting longer or re-reading objects will move the backlog.",
+    "concept_tags": ["S3 replication", "Cross-Region Replication", "S3 Batch Replication"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "An interactive API backed by AWS Lambda shows unacceptable p99 latency caused by cold starts. A second, batch-oriented function in the same account keeps exhausting account concurrency and starving it. Which combination addresses both problems?",
+    "options": [
+      "Provisioned concurrency on the API function to keep execution environments pre-initialized, and reserved concurrency on the batch function to cap how far it can scale.",
+      "Reserved concurrency on the API function to keep environments warm, and provisioned concurrency on the batch function to cap its scaling.",
+      "Provisioned concurrency on both functions, since it is the only control that both eliminates cold starts and bounds concurrent executions.",
+      "Reserved concurrency on both functions, since pre-initialized environments are allocated automatically once a function has reserved capacity."
+    ],
+    "correct_index": 0,
+    "explanation": "The two controls solve different problems. Provisioned concurrency is a number of pre-initialized execution environments that are ready to respond immediately, which is what removes cold start latency; it costs extra and must be applied to a version or alias, never to $LATEST. Reserved concurrency sets both a floor and a ceiling: it reserves capacity exclusively for a function and simultaneously prevents it from scaling beyond that limit, which is the standard way to stop one function from consuming the account's concurrency — and it incurs no additional charge. Reserved concurrency does not pre-warm anything.",
+    "concept_tags": ["Lambda", "reserved concurrency", "provisioned concurrency", "cold starts"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/lambda/latest/dg/provisioned-concurrency.html"]
+  }
+]

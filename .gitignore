@@ -1,0 +1,24 @@
+# Secrets. study-helper-beta/.gitignore already covers its own .env, but a
+# root-level rule means a future subproject can't reintroduce the hole.
+.env
+.env.*
+!.env.example
+
+# Local databases and their backups. cert_prep.db is dev-only SQLite with no
+# migrations, so it is rebuilt rather than versioned.
+*.db
+*.db.bak-*
+
+# Raw model output kept after a parse failure — useful locally, not shared.
+failed_generations/
+
+# Dependencies and build output
+node_modules/
+.next/
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Editor
+.idea/
+.DS_Store
