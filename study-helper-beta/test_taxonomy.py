@@ -76,3 +76,18 @@ def test_import_rejects_a_domain_outside_the_four():
 def test_import_accepts_each_blueprint_domain():
     for domain in EXAM_DOMAINS:
         assert import_questions.validate(_entry(domain=domain), 0) == []
+
+
+# ---------------------------------------------------------------------
+# Sources: what a reviewer checks a claim against
+# ---------------------------------------------------------------------
+
+def test_import_accepts_a_batch_without_sources():
+    """Gemini-generated questions have none, and hand-written batches predate
+    the field. Their absence is a fact to show the reviewer, not an error."""
+    assert import_questions.validate(_entry(), 0) == []
+
+
+def test_import_rejects_a_malformed_sources_field():
+    errors = import_questions.validate(_entry(sources="https://docs.aws.amazon.com"), 0)
+    assert any("sources" in e for e in errors)

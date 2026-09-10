@@ -23,6 +23,7 @@ from sqlmodel import Session, select
 from db_schema import (
     Question,
     QuestionReport,
+    QuestionSource,
     ReviewStatus,
     create_db_and_tables,
     engine,
@@ -53,6 +54,12 @@ def show_stats():
               f" — review them with `python review_questions.py --reported`")
 
 
+def _sources(session, question_id: int) -> list[str]:
+    return [r.url for r in session.exec(
+        select(QuestionSource).where(QuestionSource.question_id == question_id)
+    ).all()]
+
+
 def _open_reports(session, question_id: int) -> list[QuestionReport]:
     return list(session.exec(
         select(QuestionReport).where(
@@ -62,7 +69,8 @@ def _open_reports(session, question_id: int) -> list[QuestionReport]:
     ).all())
 
 
-def render(q: Question, reports: list[QuestionReport] | None = None) -> None:
+def render(q: Question, reports: list[QuestionReport] | None = None,
+           sources: list[str] | None = None) -> None:
     print("=" * 72)
     print(f"[id {q.id}] {q.certification}")
     print(f"{q.domain} — {q.question_type.value} / {q.difficulty.value}")
@@ -76,6 +84,16 @@ def render(q: Question, reports: list[QuestionReport] | None = None) -> None:
     print()
     print("EXPLANATION:")
     print(q.explanation)
+    # The reviewer decides whether a specific threshold or code is real, so
+    # what it was checked against belongs on screen next to the claim — not
+    # in a batch file they would have to go and find.
+    print()
+    if sources:
+        print("CHECKED AGAINST:")
+        for url in sources:
+            print(f"  {url}")
+    else:
+        print("CHECKED AGAINST: nothing recorded — verify every specific value yourself.")
     if reports:
         print("-" * 72)
         print(f"REPORTED BY USERS ({len(reports)}):")
@@ -100,7 +118,7 @@ def review():
 
         for idx, q in enumerate(pending, 1):
             print(f"\n--- {idx} of {len(pending)} ---")
-            render(q, _open_reports(session, q.id))
+            render(q, _open_reports(session, q.id), _sources(session, q.id))
             print("[a]pprove  [r]eject  [s]kip  [q]uit")
             choice = input("> ").strip().lower()
 
@@ -157,7 +175,7 @@ def review_reported():
                 continue
             reports = by_question[question_id]
             print(f"\n--- {idx} of {len(order)} --- (status: {question.review_status.value})")
-            render(question, reports)
+            render(question, reports, _sources(session, question_id))
             print("[k]eep as is  [r]eject and pull from the bank  [s]kip  [q]uit")
             choice = input("> ").strip().lower()
 

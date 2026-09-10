@@ -126,6 +126,7 @@ class Question(SQLModel, table=True):
 
     attempts: list["Attempt"] = Relationship(back_populates="question")
     reports: list["QuestionReport"] = Relationship(back_populates="question")
+    sources: list["QuestionSource"] = Relationship(back_populates="question")
 
 
 class Attempt(SQLModel, table=True):
@@ -183,6 +184,26 @@ class QuestionReport(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     question: Question = Relationship(back_populates="reports")
+
+
+class QuestionSource(SQLModel, table=True):
+    """A documentation page a question's claims were checked against.
+
+    Hand-written batches carry a `sources` array per question, and the
+    importer used to drop it — which meant the reviewer, the one person who
+    has to decide whether a specific threshold is real, was the only one who
+    couldn't see what it had been checked against. Storing it makes a batch
+    checkable instead of merely plausible.
+
+    A separate table for the same reason as QuestionReport: this project has
+    no migrations, and `create_all` adds a missing table without touching
+    existing ones, whereas a new column on Question would have meant deleting
+    cert_prep.db and the questions in it."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    question_id: int = Field(foreign_key="question.id", index=True)
+    url: str
+
+    question: Question = Relationship(back_populates="sources")
 
 
 class StudyPlan(SQLModel, table=True):

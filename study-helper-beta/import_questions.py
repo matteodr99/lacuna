@@ -23,6 +23,7 @@ from db_schema import (
     EXAM_DOMAINS,
     Difficulty,
     Question,
+    QuestionSource,
     QuestionType,
     ReviewStatus,
     canonical_tags,
@@ -53,6 +54,8 @@ def validate(entry: dict, index: int) -> list[str]:
         errors.append(f"bad difficulty: {entry['difficulty']!r}")
     if not entry["concept_tags"]:
         errors.append("concept_tags is empty")
+    if not isinstance(entry.get("sources", []), list):
+        errors.append("sources must be a list of URLs when present")
     return errors
 
 
@@ -83,7 +86,7 @@ def main():
         return
 
     create_db_and_tables()
-    imported, skipped = 0, 0
+    imported, skipped, sourced = 0, 0, 0
     with Session(engine) as session:
         bank = session.exec(select(Question)).all()
         existing = {q.question_text for q in bank}
@@ -97,7 +100,7 @@ def main():
                 continue
             tags = canonical_tags(entry["concept_tags"], known_tags)
             renamed += [(a, b) for a, b in zip(entry["concept_tags"], tags) if a != b]
-            session.add(Question(
+            question = Question(
                 certification=entry["certification"],
                 domain=entry["domain"],
                 question_text=entry["question"],
@@ -108,11 +111,19 @@ def main():
                 question_type=QuestionType(entry["question_type"]),
                 difficulty=Difficulty(entry["difficulty"]),
                 review_status=ReviewStatus.pending,
-            ))
+            )
+            session.add(question)
+            # Flush to get the id: the sources are what let a reviewer check
+            # a claim instead of taking it on trust, so they are worth
+            # keeping alongside the question rather than only in the batch file.
+            session.flush()
+            for url in entry.get("sources", []):
+                session.add(QuestionSource(question_id=question.id, url=url))
+                sourced += 1
             imported += 1
         session.commit()
 
-    print(f"Imported {imported}, skipped {skipped} duplicate(s).")
+    print(f"Imported {imported}, skipped {skipped} duplicate(s), recorded {sourced} source(s).")
     for before, after in dict.fromkeys(renamed):
         print(f"  tag {before!r} -> {after!r} (spelling already in the bank)")
     if imported:

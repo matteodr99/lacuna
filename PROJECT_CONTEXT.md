@@ -55,10 +55,14 @@ also where an ambiguous or badly worded question gets caught, which is a
 different failure from a factually wrong one.
 
 Import batches carry a `sources` array per question, listing the official doc
-pages each claim was checked against. `import_questions.py` ignores the field,
-so it never reaches the database — it exists for whoever reviews the JSON, and
-it is what makes a batch checkable rather than merely plausible. Keep it: a
-batch without it is indistinguishable from one written from memory.
+pages each claim was checked against, and they are stored in `QuestionSource`
+and shown by `review_questions.py` under CHECKED AGAINST. This matters at the
+one moment it has to: the reviewer deciding whether a specific threshold is
+real is the person who needs the citation, and the importer used to be the one
+dropping it. A question with nothing recorded says so explicitly rather than
+showing an empty space, because "unverified" and "verified elsewhere" have to
+look different. Keep filling the field: a batch without it is
+indistinguishable from one written from memory.
 
 **Nothing reaches a user without human review.**
 `review_questions.py` is a CLI to approve/reject; only `approved` questions are
@@ -244,7 +248,7 @@ Read `api.py` for exact request/response shapes. Endpoints:
 
 ## Current state
 
-Backend done, 32 tests passing (`test_api.py`, `test_parsing.py`,
+Backend done, 34 tests passing (`test_api.py`, `test_parsing.py`,
 `test_taxonomy.py`). The
 question bank holds 35 questions, all `pending`: 14 from the Gemini seed run of
 2026-09-08, 10 imported by hand on 2026-09-10, 6 more (`questions_batch_2.json`)
