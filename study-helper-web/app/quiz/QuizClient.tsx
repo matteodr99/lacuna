@@ -128,8 +128,9 @@ export default function QuizClient({
             You&rsquo;ve answered every approved question
           </h1>
           <p className="max-w-xl text-zinc-600 dark:text-zinc-400">
-            The bank only serves human-reviewed questions, so it runs out rather
-            than inventing more on the spot. More are added as they pass review.
+            The bank only serves questions that have passed review against the
+            official documentation, so it runs out rather than inventing more on
+            the spot. More are added as they pass.
           </p>
           <div className="flex gap-3">
             <Link

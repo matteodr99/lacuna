@@ -74,12 +74,14 @@ export default function Home() {
           Questions are generated offline, with search grounding for any
           specific value or threshold, and then{" "}
           <strong className="font-medium text-zinc-900 dark:text-zinc-100">
-            read by a human before they can be served
+            every specific claim is checked against the official documentation
+            before the question can be served
           </strong>
           . Taking a test makes zero model calls. Generation alone was not
           enough — during development it produced confident, wrong BGP
-          community values — so approval is a structural step, not a
-          formality.
+          community values — so review is a structural step, not a formality.
+          If something still slips through, you can report it from the
+          question itself, and a person reads every report.
         </p>
       </section>
     </div>

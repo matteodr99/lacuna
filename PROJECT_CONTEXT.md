@@ -37,7 +37,7 @@ shebang is dead. Use `.venv/bin/python -m pip` and `.venv/bin/python -m pytest`.
 **Questions are pre-generated offline, not generated per user.**
 `seed_questions.py` batch-generates into a question bank; users are served from
 that bank via `GET /questions/next`. Taking a test triggers zero Gemini calls.
-This is deliberate — it fixes cost, latency, and (most importantly) allows human
+This is deliberate — it fixes cost, latency, and (most importantly) allows
 review before content reaches anyone. There is a test that fails on purpose if
 anyone reintroduces a Gemini call into the question-serving path.
 
@@ -64,11 +64,38 @@ showing an empty space, because "unverified" and "verified elsewhere" have to
 look different. Keep filling the field: a batch without it is
 indistinguishable from one written from memory.
 
-**Nothing reaches a user without human review.**
-`review_questions.py` is a CLI to approve/reject; only `approved` questions are
-served. This exists because prompt engineering alone did not prevent factual
-errors — see below. Approval is a human action by design: nothing automated,
-including an agent working in this repo, should set `review_status=approved`.
+**Nothing reaches a user without review against the documentation.**
+Only `approved` questions are served. This exists because prompt engineering
+alone did not prevent factual errors — see below.
+
+Who reviews changed on 2026-09-11, and the reasoning is worth keeping. The
+original rule was that approval is a human action and nothing automated should
+set `review_status=approved`. The maintainer then made the call that this gate
+was not doing what it claimed: they don't know every certification's material
+well enough to catch a wrong BGP community by eye, so a human read-through would
+have been a rubber stamp. What actually catches errors is checking each specific
+claim against the official documentation — and an agent with web access can do
+that page by page, where a person without the domain knowledge can't. So:
+
+- Review is done by Claude against the AWS docs. Every approved question carries
+  a `review_note` saying what the verdict rests on, and `QuestionSource` rows
+  for the pages consulted where a page was consulted. Questions reviewed without
+  fetching a page say so in the note, so "verified" and "looked plausible" stay
+  distinguishable.
+- Content fixes found during review are applied before approval and recorded
+  in the note. The first pass fixed five of 14 generated questions — all with
+  the right answer marked and the error in the surrounding reasoning.
+- **The human gate moved to user reports.** `review_questions.py --reported` is
+  read by the maintainer, and a report never unpublishes anything on its own.
+  This is the point where a person decides, and it's where a person is actually
+  useful: a candidate's complaint comes with a reason and a specific claim.
+- The self-review problem is real and acknowledged: 11 of the 35 questions were
+  written by the same agent that reviewed them. The duplicate it missed at
+  writing time (id 28, a copy of id 19) was caught at review time, which is
+  some evidence the check works, not proof.
+
+`apply_review_2026-09-11.py` is the record of that first pass: what was
+approved, what was corrected, and why.
 
 **`domain` and `concept_tags` are load-bearing, so neither is free text any more.**
 `select_next_question()` prefers questions tagged with the user's weak
@@ -144,7 +171,9 @@ Conclusions baked into the current design:
 - Risk concentrates in **volunteered extras** — facts the model adds that
   nobody asked for — not in the fact being asked about.
 - `detail_recall` questions are riskier than `conceptual` ones.
-- Human review is the structural answer. Keep the review gate.
+- Checking every claim against the documentation before approval is the
+  structural answer; user reports are the safety net. Keep the gate — what
+  changed is who operates it, not whether it exists.
 - Grounding sometimes beats stale training knowledge: it correctly surfaced that
   AWS removed the 30-day S3 Standard-IA transition minimum in July 2026.
 
@@ -249,14 +278,13 @@ Read `api.py` for exact request/response shapes. Endpoints:
 ## Current state
 
 Backend done, 34 tests passing (`test_api.py`, `test_parsing.py`,
-`test_taxonomy.py`). The
-question bank holds 35 questions, all `pending`: 14 from the Gemini seed run of
-2026-09-08, 10 imported by hand on 2026-09-10, 6 more (`questions_batch_2.json`)
-covering the six jobs the seed run never produced, and 5
-(`questions_batch_3.json`) on ground the SEED_PLAN never covered at all. Nothing is approved, so
-`/questions/next` currently serves nothing and the quiz shows its
-bank-exhausted state until `review_questions.py` is run. Frontend has the quiz flow and
-the weak-spots dashboard; the public landing page is still to do.
+`test_taxonomy.py`). The question bank holds 35 questions: **34 approved, 1
+rejected** as a duplicate, reviewed on 2026-09-11. 14 came from the Gemini seed
+run of 2026-09-08, 10 were imported by hand on 2026-09-10, 6 more
+(`questions_batch_2.json`) cover the six jobs the seed run never produced, and 5
+(`questions_batch_3.json`) cover ground the SEED_PLAN never had. The quiz serves
+questions for the first time. Frontend has the quiz flow and the weak-spots
+dashboard; the public landing page is still to do.
 
 The weak-spots page has only been exercised on its failure path — its happy
 path needs a `GEMINI_API_KEY` and one live call.

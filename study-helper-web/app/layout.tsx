@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Study Helper — adaptive cloud certification practice",
   description:
-    "Practice questions for AWS, Azure and GCP certifications, focused on the granular details experienced engineers actually forget. Every question is human-reviewed before it reaches you.",
+    "Practice questions for AWS, Azure and GCP certifications, focused on the granular details experienced engineers actually forget. Every question is checked against the official documentation before it reaches you.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

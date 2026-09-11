@@ -19,31 +19,48 @@ confidently. Most of the design below exists because of that.
 ```
 seed_questions.py ─┐
  (Gemini, grounded) │
-                    ├──▶  question bank  ──▶  review_questions.py  ──▶  served to users
-import_questions.py ┘      (all pending)        (a human decides)         (approved only)
+                    ├──▶  question bank  ──▶  review against docs  ──▶  served to users  ──▶  user reports
+import_questions.py ┘      (all pending)     (every claim checked)      (approved only)      (re-reviewed)
  (hand-written JSON)
 ```
 
 **Questions are generated offline, never per user.** Taking a test triggers zero
 model calls: questions are served from a pre-built bank. That fixes cost and
-latency, but the real reason is the third one — it puts a human between the
-model and the candidate. There is a test that fails on purpose if anyone
+latency, but the real reason is the third one — it puts a review step between
+the model and the candidate. There is a test that fails on purpose if anyone
 reintroduces a model call into the question-serving path.
 
-**Nothing reaches a user without review.** Everything lands as `pending`,
-whether a model wrote it or a person did. Being hand-checked buys no exemption:
-review is also where an ambiguous or badly worded question gets caught, which is
-a different failure from a factually wrong one.
+**Nothing is served until every specific claim has been checked against the
+official documentation.** Everything lands as `pending`, whether a model wrote
+it or a person did, and stays there until reviewed. The review is done by
+Claude, page by page: each threshold, code or behavioural claim is looked up in
+the AWS docs, the pages consulted are recorded against the question, and the
+`review_note` says what was checked and what was changed. That is not the same
+as a human reading it — the maintainer doesn't know every certification's
+material well enough to catch a wrong BGP community by eye, which is exactly
+why the check is against the documentation rather than against memory, and why
+user reports exist as the safety net. Review also catches an ambiguous or badly
+worded question, which is a different failure from a factually wrong one.
+
+The first review pass, on 2026-09-11, is a fair picture of what it catches: of
+14 generated questions, one had an impossible premise (a role as a member of an
+IAM group), one carried stale gp3 limits that quietly broke its own threshold,
+one misdescribed how CloudFront orders cache behaviors, one cited AOF
+persistence that ElastiCache doesn't offer, and one was ambiguous about which
+half of cross-account access it was asking about. All five had the right
+answer marked. The errors were in the reasoning around it.
 
 **Adaptivity lives in selection, not generation.** `select_next_question()`
 filters to approved and unanswered, then prefers questions tagged with the
 user's weak concepts. Same personalisation as generating on the fly, without the
 per-question cost, latency, or the risk of an unreviewed answer reaching anyone.
 
-**Users can report a question.** A report raises it in the reviewer's queue and
-never unpublishes it — otherwise one user could empty everyone else's bank.
-Review catches what a reviewer noticed; a candidate revising one topic in depth
-notices things a reviewer didn't.
+**Users can report a question, and a person reads every report.** A report
+raises the question in the maintainer's queue (`review_questions.py
+--reported`) and never unpublishes it — otherwise one user could empty everyone
+else's bank. This is where a human enters the process: a candidate revising
+one topic in depth notices things a documentation check didn't, and the
+maintainer decides whether the complaint holds.
 
 ## Why the review gate exists
 
@@ -66,7 +83,9 @@ What that led to:
   nobody asked for — not in the fact being asked about.
 - `detail_recall` questions are riskier than conceptual ones, and they are also
   the product's differentiator, so they get the most review attention.
-- Human review is the structural answer. Everything else is mitigation.
+- Checking every claim against the documentation before approval is the
+  structural answer, and user reports are the safety net behind it. Everything
+  else is mitigation.
 
 Grounding also earns its cost in the other direction: it correctly surfaced that
 AWS removed the 30-day S3 Standard-IA transition minimum in July 2026, which no
@@ -116,7 +135,7 @@ bug with Tailwind's native optional dependencies):
 pnpm install && pnpm dev
 ```
 
-Tests: `.venv/bin/python -m pytest` — 32 passing.
+Tests: `.venv/bin/python -m pytest` — 34 passing.
 
 Filling the bank:
 
@@ -124,7 +143,7 @@ Filling the bank:
 python seed_questions.py --plan                 # what it would generate
 python seed_questions.py --jobs 7,8,11 --delay 13   # generate specific jobs
 python import_questions.py batch.json --dry-run     # validate a hand-written batch
-python review_questions.py                      # the human gate
+python review_questions.py                      # approve/reject, sources on screen
 python review_questions.py --reported           # re-review what users flagged
 ```
 
@@ -156,11 +175,12 @@ it is the exact failure the review gate exists to catch.
 
 ## Current state
 
-The bank holds **35 questions, all pending review** — nothing is approved, so
-`/questions/next` currently serves nothing and the quiz shows its
-bank-exhausted state. 14 were generated with Gemini; 21 were written by hand and
-fact-checked against official documentation, each batch carrying a `sources`
-array naming the pages every claim was checked against.
+The bank holds **35 questions: 34 approved, 1 rejected** as a duplicate. 14
+were generated with Gemini and 21 written by hand. Every approved question
+carries a `review_note` saying what its verdict rests on, and 23 of them carry
+the documentation pages their claims were checked against; the other 11 are
+standard material that was reviewed without a page being fetched for them
+specifically, and the note says so.
 
 Known gaps, in rough priority order: no auth (the browser holds a guest user id
 in `localStorage`), no migrations (a schema change currently means deleting
