@@ -6,10 +6,11 @@ Setup:
     pip install fastapi uvicorn --break-system-packages
     uvicorn api:app --reload
 
-Design note: question generation intentionally returns QuestionPublic,
-which omits correct_index and explanation. Those only come back once an
-attempt is submitted — otherwise the frontend could just read the
-answer out of the generation response.
+Design note: GET /questions/next returns QuestionPublic, which omits
+correct_index and explanation. Both come back only once an attempt is
+submitted — otherwise the frontend could just read the answer out of the
+response. The explanation returned is the one stored with the question,
+which passed review alongside it; no model is called at test time.
 """
 
 import logging
@@ -38,9 +39,7 @@ from db_schema import (
 from gemini_integration_example import (
     StudyPlan,
     WeakSpotAnalysis,
-    WrongAnswerExplanation,
     analyze_weak_spots,
-    explain_wrong_answer,
     generate_study_plan,
 )
 
@@ -184,11 +183,13 @@ class SubmitAttemptRequest(BaseModel):
 class AttemptResult(BaseModel):
     is_correct: bool
     correct_index: int
-    explanation: Optional[WrongAnswerExplanation] = None
-    # Set when the answer was wrong but the explanation call failed, so the
-    # client can tell "no explanation needed" apart from "explanation
-    # didn't arrive" and say which.
-    explanation_error: Optional[str] = None
+    # The explanation stored with the question. It was generated (or written)
+    # together with the question and reviewed with it, and the generation
+    # prompt requires it to cover why each distractor is wrong — so it serves
+    # whichever option the candidate picked. This used to be a live Gemini
+    # call, which was the one piece of model text reaching users without
+    # review, and the one thing at test time that could fail on quota.
+    explanation: str
 
 
 @app.post("/attempts", response_model=AttemptResult)
@@ -207,29 +208,10 @@ def submit_attempt(body: SubmitAttemptRequest, session: Session = Depends(get_se
     session.add(attempt)
     session.commit()
 
-    is_correct = body.selected_index == question.correct_index
-    explanation = None
-    explanation_error = None
-    if not is_correct:
-        # Correctness is known without Gemini, and the attempt is already
-        # recorded. On the free tier (5 req/min, 20/day) an exhausted quota
-        # is routine, so a failed explanation degrades to a result without
-        # one instead of turning the answer into a 500.
-        try:
-            explanation = explain_wrong_answer(
-                question=question.question_text,
-                user_answer=question.options[body.selected_index],
-                correct_answer=question.options[question.correct_index],
-                question_type=question.question_type,
-            )
-        except Exception:
-            logger.exception("explain_wrong_answer failed for question %s", question.id)
-            explanation_error = "The explanation could not be generated (the model API is unavailable or out of quota)."
     return AttemptResult(
-        is_correct=is_correct,
+        is_correct=body.selected_index == question.correct_index,
         correct_index=question.correct_index,
-        explanation=explanation,
-        explanation_error=explanation_error,
+        explanation=question.explanation,
     )
 
 

@@ -145,11 +145,19 @@ because this class of regression is invisible at runtime.
 questions tagged with the user's weak concepts. Same personalisation as
 generating on the fly, without the API cost.
 
-**AI is used at exactly two points:**
-1. Offline question generation (`seed_questions.py`) — not the import path,
-   which is AI-free end to end
-2. Explaining a wrong answer, live, when the user gets one wrong — this can't be
-   pre-generated because it depends on which wrong option they picked.
+**AI is used at exactly one point: offline question generation**
+(`seed_questions.py` — not the import path, which is AI-free end to end).
+Taking a test makes no model call.
+
+The explanation of a wrong answer was a second, live call until 2026-09-11,
+justified as "can't be pre-generated because it depends on which wrong option
+they picked". That justification was wrong on inspection: the generation
+prompt already requires the stored `explanation` to say why *each* distractor
+is wrong, so one text covers every pick. Dropping the live call removed three
+things at once — the only model output that reached users without review, the
+only test-time dependency on Gemini quota (the maintainer hit it on the very
+first live demo), and the whole `explanation_error` degradation path. The
+candidate now reads exactly the text the reviewer approved.
 
 ## Accuracy: the hard-won lesson
 
@@ -308,13 +316,12 @@ numeric id, so on first visit the client creates a throwaway user
 (`lib/session.ts`). Clearing site data creates a new learner and loses history —
 acceptable while there's nothing to protect, and the seam real auth replaces.
 
-**A failed explanation is not an error.** On the Gemini free tier an exhausted
-quota is routine, and correctness is already known without a model call, so
-`POST /attempts` catches an `explain_wrong_answer` failure and returns
-`explanation_error` alongside the result instead of a 500. The answer still
-counts and the UI says why the explanation is missing. `/weak-spots` can't
-degrade the same way — the whole page is that one call — so it reports the
-quota as the likely cause.
+**`/weak-spots` reports quota as the likely cause of failure.** It is now the
+only user-facing endpoint that calls the model live, and the whole page is that
+one call, so there is nothing to degrade to — it says what failed instead of
+showing an empty dashboard. (`POST /attempts` used to have a degradation path
+for a failed live explanation; that call no longer exists, see "AI is used at
+exactly one point".)
 
 **Unhandled 500s set the CORS header themselves.** Starlette generates them
 above `CORSMiddleware`, so the browser saw an opaque "failed to fetch" and the

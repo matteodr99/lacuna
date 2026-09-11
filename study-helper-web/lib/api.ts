@@ -30,19 +30,13 @@ export type Question = {
   difficulty: Difficulty;
 };
 
-export type WrongAnswerExplanation = {
-  why_wrong: string;
-  why_correct: string;
-  key_takeaway: string;
-};
-
 export type AttemptResult = {
   is_correct: boolean;
   correct_index: number;
-  explanation: WrongAnswerExplanation | null;
-  /** Set when the answer was wrong but the explanation call failed —
-   *  typically the Gemini free-tier quota. The answer still counted. */
-  explanation_error: string | null;
+  /** The explanation stored with the question — reviewed alongside it,
+   *  covering why each distractor is wrong. Markdown. Returned for correct
+   *  answers too; it costs nothing and the reasoning is worth reading. */
+  explanation: string;
 };
 
 export type WeakSpot = {

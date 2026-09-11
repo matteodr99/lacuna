@@ -110,14 +110,20 @@ term worth ranking for.
 |---|---|
 | `POST /users` | Create a user. |
 | `GET /questions/next` | Next approved, unanswered question, steered by weak concepts. Never returns `correct_index` or `explanation`. |
-| `POST /attempts` | Submit an answer; returns correctness and, if wrong, an explanation. |
+| `POST /attempts` | Submit an answer; returns correctness and the reviewed explanation. |
 | `POST /questions/{id}/report` | Flag a question as wrong, stale or ambiguous. |
 | `GET /users/{id}/weak-spots` | Pattern analysis over answer history. |
 | `POST /users/{id}/study-plan` | A time-budgeted plan to the exam date. |
 
-The model is used at exactly two points: offline question generation, and
-explaining a wrong answer live — the latter can't be pre-generated because it
-depends on which wrong option the candidate picked.
+The model is used at exactly one point: offline question generation. Taking a
+test makes no model call at all — not to serve the question, and not to
+explain the answer. The explanation was a live call on wrong answers until
+2026-09-11, on the theory that it had to depend on which wrong option the
+candidate picked. It didn't: the generation prompt already requires the stored
+explanation to say why each distractor is wrong, so it covers every pick. And
+the live version was the one piece of model text reaching users without
+review, and the one thing at test time that could fail on quota. Now the
+candidate reads the same text the reviewer approved.
 
 ## Running it
 

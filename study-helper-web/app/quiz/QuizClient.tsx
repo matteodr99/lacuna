@@ -95,9 +95,6 @@ export default function QuizClient({
       }));
       setPhase({ status: "feedback", result });
     } catch (error) {
-      // A failed explanation is handled server-side and comes back as
-      // explanation_error, so reaching here means the attempt itself
-      // didn't go through.
       setPhase({
         status: "error",
         message: error instanceof Error ? error.message : "Something went wrong",
@@ -185,12 +182,7 @@ export default function QuizClient({
               >
                 {result.is_correct ? "Correct." : "Not quite."}
               </p>
-              {result.explanation && <ExplanationCard explanation={result.explanation} />}
-              {result.explanation_error && (
-                <p className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm leading-6 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                  {result.explanation_error} Your answer was still recorded.
-                </p>
-              )}
+              <ExplanationCard explanation={result.explanation} />
               {/* Keyed on the question so the form resets when the next one
                   loads, instead of showing the previous question's thanks. */}
               <ReportQuestion
@@ -220,11 +212,7 @@ export default function QuizClient({
                 {phase.status === "submitting" ? "Checking…" : "Submit answer"}
               </button>
             )}
-            {phase.status === "submitting" && (
-              <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                If the answer is wrong, the explanation takes a few seconds.
-              </span>
-            )}
+
           </div>
         </>
       )}

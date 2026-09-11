@@ -29,7 +29,6 @@ from gemini_integration_example import (
     WeakSpot,
     WeakSpotAnalysis,
     WeeklyPlan,
-    WrongAnswerExplanation,
 )
 
 
@@ -57,12 +56,6 @@ MOCK_QUESTION = Question(
     concept_tags=["Transit Gateway route propagation", "BGP community tags"],
     question_type="detail_recall",
     difficulty="hard",
-)
-
-MOCK_EXPLANATION = WrongAnswerExplanation(
-    why_wrong="7224:9300 is a Public VIF scope community, not applicable to Transit VIF local preference.",
-    why_correct="7224:7300 is documented specifically for Private/Transit VIF Local Preference.",
-    key_takeaway="Local preference on Transit VIFs uses the 7224:7xxx family, not 7224:9xxx.",
 )
 
 MOCK_WEAK_SPOTS = WeakSpotAnalysis(
@@ -142,21 +135,28 @@ def test_unapproved_questions_are_never_served(client):
     assert r.status_code == 404
 
 
-def test_next_question_serves_no_gemini_call(client, monkeypatch):
-    """Serving a question must not hit the API at all — that's the entire
-    point of the bank. Blow up loudly if anything calls Gemini."""
+def test_taking_a_test_makes_no_gemini_call(client, monkeypatch):
+    """Serving a question and grading an answer must not hit the model at
+    all — that's the entire point of the bank. The explanation used to be a
+    live call on wrong answers; now it's the reviewed text stored with the
+    question. Blow up loudly if anything reaches the Gemini client."""
+    import gemini_integration_example as gie
+
     def explode(*a, **kw):
-        raise AssertionError("Gemini was called while serving a question")
-    monkeypatch.setattr(api, "explain_wrong_answer", explode)
+        raise AssertionError("Gemini was called while taking a test")
+    monkeypatch.setattr(gie, "get_client", explode)
 
     user = client.post("/users", json={"email": "free@example.com"}).json()
-    _seed_question(client)
+    question = _seed_question(client)
     r = client.get("/questions/next", params={"user_id": user["id"], "certification": "AWS ANS-C01"})
+    assert r.status_code == 200
+    r = client.post("/attempts", json={"user_id": user["id"], "question_id": question["id"], "selected_index": 2})
     assert r.status_code == 200
 
 
-@patch("api.explain_wrong_answer", return_value=MOCK_EXPLANATION)
-def test_wrong_attempt_triggers_explanation(mock_explain, client):
+def test_wrong_attempt_returns_the_reviewed_explanation(client):
+    """The explanation is the text stored with the question — the one that
+    passed review with it — not a fresh model output."""
     user = client.post("/users", json={"email": "a@example.com"}).json()
     question = _seed_question(client)
 
@@ -165,27 +165,13 @@ def test_wrong_attempt_triggers_explanation(mock_explain, client):
     body = r.json()
     assert body["is_correct"] is False
     assert body["correct_index"] == 0
-    assert body["explanation"]["key_takeaway"] == MOCK_EXPLANATION.key_takeaway
-    mock_explain.assert_called_once()
+    assert body["explanation"] == MOCK_QUESTION.explanation
+    assert "explanation_error" not in body
 
 
-@patch("api.explain_wrong_answer", side_effect=RuntimeError("quota exhausted"))
-def test_wrong_attempt_survives_explanation_failure(mock_explain, client):
-    """The free tier runs out daily, so a failed explanation must not turn
-    answering a question into a 500 — correctness is known without it."""
-    user = client.post("/users", json={"email": "quota@example.com"}).json()
-    question = _seed_question(client)
-
-    r = client.post("/attempts", json={"user_id": user["id"], "question_id": question["id"], "selected_index": 2})
-    assert r.status_code == 200
-    body = r.json()
-    assert body["is_correct"] is False
-    assert body["correct_index"] == 0
-    assert body["explanation"] is None
-    assert body["explanation_error"]
-
-
-def test_correct_attempt_skips_explanation(client):
+def test_correct_attempt_also_returns_the_explanation(client):
+    """Stored text costs nothing to return, and the reasoning about the
+    distractors is worth reading even when the pick was right."""
     user = client.post("/users", json={"email": "b@example.com"}).json()
     question = _seed_question(client)
 
@@ -193,12 +179,11 @@ def test_correct_attempt_skips_explanation(client):
     assert r.status_code == 200
     body = r.json()
     assert body["is_correct"] is True
-    assert body["explanation"] is None
+    assert body["explanation"] == MOCK_QUESTION.explanation
 
 
 @patch("api.analyze_weak_spots", return_value=MOCK_WEAK_SPOTS)
-@patch("api.explain_wrong_answer", return_value=MOCK_EXPLANATION)
-def test_weak_spots_uses_real_question_type(mock_explain, mock_weak, client):
+def test_weak_spots_uses_real_question_type(mock_weak, client):
     """The whole point of the DB layer: verify the history passed to
     analyze_weak_spots carries real question_type from the DB, not a guess."""
     user = client.post("/users", json={"email": "c@example.com", "target_certification": "AWS ANS-C01"}).json()
@@ -221,8 +206,7 @@ def test_weak_spots_without_history_returns_400(client):
 
 @patch("api.generate_study_plan", return_value=MOCK_STUDY_PLAN)
 @patch("api.analyze_weak_spots", return_value=MOCK_WEAK_SPOTS)
-@patch("api.explain_wrong_answer", return_value=MOCK_EXPLANATION)
-def test_study_plan_end_to_end(mock_explain, mock_weak, mock_plan, client):
+def test_study_plan_end_to_end(mock_weak, mock_plan, client):
     user = client.post(
         "/users",
         json={"email": "e@example.com", "target_certification": "AWS ANS-C01", "exam_date": "2026-11-15"},

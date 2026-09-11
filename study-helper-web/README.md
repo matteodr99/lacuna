@@ -32,12 +32,12 @@ The API base URL comes from `NEXT_PUBLIC_API_URL` in `.env.local`, defaulting to
 
 **Questions run out.** A 404 from `/questions/next` means every approved
 question has been answered. That is a normal end state, not an error — the bank
-only serves human-reviewed questions rather than inventing more on demand.
+only serves questions that passed review rather than inventing more on demand.
 
 **The answer is not in the DOM.** `/questions/next` never returns
 `correct_index` or `explanation`; both arrive only after an attempt is
 submitted, so the frontend cannot leak the answer.
 
-**A missing explanation is not a failure.** When the model API is out of quota,
-`POST /attempts` still returns correctness with an `explanation_error`, and the
-UI says why the explanation is missing. The answer still counted.
+**The explanation is instant and always there.** It's the text stored and
+reviewed with the question, returned for right and wrong answers alike — not a
+live model call, so it can't be slow and can't fail on quota.
