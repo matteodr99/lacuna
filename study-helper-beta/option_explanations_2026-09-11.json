@@ -1,0 +1,208 @@
+{
+  "_note": "Per-option reasons for the 34 approved questions, derived from each question's reviewed explanation on 2026-09-11. Keyed by question id; four strings aligned with options A-D. Restructuring of verified content, not new claims.",
+
+  "1": [
+    "A bucket policy Allow cannot override an explicit Deny: in IAM evaluation an explicit Deny in any applicable policy wins over every Allow, whatever policy type the Allow comes from.",
+    "Managed and inline policies attached to the same principal are evaluated together, and neither type takes precedence over the other. The explicit Deny in the inline policy still wins over the managed policy's Allow.",
+    "An explicit Deny in any applicable policy overrides all Allow statements. The inline policy on `AppRole` explicitly denies `s3:GetObject` on `financial-reports-2026/*`, so the request is denied regardless of the managed policy and the bucket policy allowing it.",
+    "The request is denied, but not by the default (implicit) deny: two policies explicitly allow the action, so the implicit deny never applies. What denies it is the explicit Deny in the inline policy."
+  ],
+  "2": [
+    "No number of Allow statements can override an explicit Deny. The group policy and the bucket policy both allow `s3:PutObject`, but the explicit Deny in the user policy for `sensitive/*` takes precedence over all of them.",
+    "There is no rule that resource-based policies take precedence over identity-based ones. Both are evaluated, and the governing rule is that an explicit Deny from either type overrides any Allow.",
+    "The IAM user policy contains `Effect: Deny` for `s3:PutObject` on `production-data-eu-west-1/sensitive/*`, and an explicit Deny in any applicable policy always overrides Allow statements from other policies. Uploading `sensitive/report.txt` is denied.",
+    "The outcome is right but the reason is not: identity-based policies do not \"always take precedence\" over resource-based policies. The action is denied because an explicit Deny wins — and it would have been denied just the same had the Deny come from the bucket policy instead."
+  ],
+  "3": [
+    "Cross-account access to S3 needs the bucket owner to grant it on the resource. A bucket policy naming `arn:aws:iam::111122223333:role/LogUploaderRole` as principal, allowing only `s3:PutObject` on `my-log-bucket-123/app-logs/*`, is exactly that grant, scoped to one role, one action and one prefix.",
+    "This is the source account's half of cross-account access, and the scenario says it is already in place. An identity-based policy in Account 111122223333 cannot by itself grant access to a bucket owned by Account 444455556666 — the bucket owner has to allow it too.",
+    "S3 ACLs are a legacy mechanism, far less granular than a bucket policy — they cannot restrict access to a single prefix or a single role — and new buckets have ACLs disabled by default under the Bucket owner enforced setting.",
+    "Service control policies never grant permissions. They set the maximum permissions available to principals in member accounts; an SCP that \"allows\" `s3:PutObject` does not give `LogUploaderRole` any access it does not already have from identity-based and resource-based policies."
+  ],
+  "4": [
+    "Security groups are stateful and operate at the instance level: when an inbound connection is allowed, the corresponding return traffic is allowed automatically, with no outbound rule required. That is both stated requirements — instance-level controls and no explicit rules for response traffic.",
+    "Network ACLs are stateless and operate at the subnet level, not the instance level. Both directions must be allowed explicitly, so return traffic for an allowed inbound connection needs its own outbound rule — the opposite of what is asked.",
+    "VPC Flow Logs capture information about IP traffic to and from network interfaces for monitoring. They do not filter traffic at all.",
+    "AWS WAF protects web applications at Layer 7 and attaches to CloudFront, an ALB or API Gateway. It is not an instance-level packet filter and has no stateful/stateless network rules."
+  ],
+  "5": [
+    "Security groups are stateful: return traffic for an allowed inbound connection, and for an outbound-initiated connection, is permitted automatically without any explicit rule. They are the opposite of what the question describes.",
+    "Network ACLs are stateless, so they must be told about both directions explicitly. Inbound HTTP on port 80 needs an outbound rule for its response on ephemeral ports, and outbound HTTPS on 443 needs an inbound rule for the reply. Without both, the connection fails.",
+    "AWS WAF operates at Layer 7 to protect web applications from exploits. It is not a general-purpose packet filter at the subnet or instance level and has no notion of return-traffic rules.",
+    "Route 53 Resolver DNS Firewall filters outbound DNS queries leaving a VPC. It does not filter general network traffic and has nothing to do with return flows for HTTP or HTTPS."
+  ],
+  "6": [
+    "`s3:Decrypt` is not an S3 action, so this policy cannot be written as described. More fundamentally, restricting `s3:GetObject` in the bucket policy does not control who may use the KMS key: another policy could still grant S3 access, and the KMS key policy is what governs decryption.",
+    "A KMS key policy is the primary access control for a KMS key: no principal, not even the account root user, has any permission on the key unless the key policy allows it. Granting `kms:Decrypt` only to `FinanceRole` means that even a principal with `s3:GetObject` from an IAM or bucket policy cannot decrypt the objects, which is exactly the requirement.",
+    "Client-side encryption with a key outside KMS abandons the SSE-KMS setup and the customer managed key the scenario is built on. It does not enforce the requirement on the existing data or through the specified key.",
+    "SCPs are guardrails at the account or OU level and never grant permissions. They are not the mechanism for restricting one specific KMS key to one specific role within an account; the key policy is."
+  ],
+  "7": [
+    "A Multi-AZ DB instance deployment keeps a synchronous standby in a different Availability Zone. On failure of the primary or its AZ, RDS fails over automatically and repoints the instance's DNS endpoint to the promoted standby, so the application reconnects to the same endpoint with no change.",
+    "Read replicas are for read scaling, not automatic high availability. Promoting one is a manual action, it creates a new endpoint that the application would have to be repointed at, and replication is asynchronous, so data can be lost in the promotion.",
+    "The failover in a Multi-AZ DB instance deployment is automatic, and the DNS endpoint update is handled by RDS. No manual promotion and no connection-string change is needed.",
+    "Read replicas cannot take on write traffic automatically, and RDS has no mechanism that directs writes to the \"least utilized\" replica. A replica becomes writable only when explicitly promoted."
+  ],
+  "8": [
+    "The default Auto Scaling health check relies on EC2 status checks, which the instances pass because the instance is fine — it is the application that is unresponsive. Enabling ELB health checks on the Auto Scaling group makes it treat an instance that fails the ALB's application-level health check as unhealthy, and replace it automatically.",
+    "The grace period only delays when health checks begin after launch. It does nothing to detect an application that stops responding later, and a longer grace period would leave unhealthy instances in service for longer.",
+    "Custom CloudWatch alarms driving termination can be made to work, but they rebuild by hand what the ELB health check integration already does natively — and they still need a signal about application health, which the ALB target group is already producing.",
+    "Tightening the ALB target group's health check changes how quickly the ALB stops sending traffic to an instance, but the Auto Scaling group still judges health by EC2 status checks and never replaces the instance. The unhealthy instance stays in the group."
+  ],
+  "9": [
+    "A visibility timeout of 60 seconds exceeds the 45 seconds of processing, so a message stays hidden from other consumers for the whole attempt. A `maxReceiveCount` of 4 lets the message be received four times — the first attempt plus three retries — before the redrive policy moves it to the dead-letter queue.",
+    "30 seconds is shorter than the 45-second processing time, so the message becomes visible again mid-processing and can be picked up by a second consumer. A `maxReceiveCount` of 3 allows only two retries, not three.",
+    "`ReceiveMessageWaitTimeSeconds` controls long polling — how long a receive call waits for a message to arrive. It has no effect on how long a received message stays hidden, or on how many receives precede the dead-letter queue.",
+    "The message retention period is how long SQS keeps a message that is never deleted. It does not hide a message during processing and does not change the redrive policy, so it addresses neither problem."
+  ],
+  "10": [
+    "Failover routing is built for active-passive: Route 53 answers with the PRIMARY record while its health check passes and switches to the SECONDARY when it fails. HTTP health checks monitor the application itself, and when the primary's health check returns to healthy, Route 53 automatically returns traffic to it — automatic failback.",
+    "Latency routing sends each user to the Region with the lowest latency for them, so users near `eu-west-1` would be routed there even while `us-east-1` is healthy. That violates the requirement that every user reaches `us-east-1` when it is healthy.",
+    "Weights of 100 and 0 send all traffic to `us-east-1` initially, but the option relies on manually updating weights to fail over and fail back. The requirements demand both be automatic.",
+    "Geolocation routing directs users by their location, so users in Europe would be sent to `eu-west-1` regardless of whether `us-east-1` is healthy. That contradicts the primary-Region requirement."
+  ],
+  "11": [
+    "io2 Block Express is the only EBS volume type that meets all three requirements: up to 256,000 IOPS per volume, an average latency under 500 microseconds for 16 KiB I/O, and 99.999% durability. It is specifically built for the largest mission-critical databases.",
+    "gp3 can be provisioned up to 80,000 IOPS and 2,000 MiB/s, which is below the 100,000 IOPS required, and its latency is single-digit milliseconds rather than sub-millisecond, with 99.8% to 99.9% durability. It fails all three requirements.",
+    "io1 tops out at 64,000 IOPS and 1,000 MiB/s per volume, with 99.8% to 99.9% durability. It cannot reach 100,000 IOPS.",
+    "st1 is a throughput-oriented HDD volume for large sequential workloads, with performance defined in MiB/s (up to 500) rather than IOPS. It is unsuitable for a latency-sensitive transactional database."
+  ],
+  "12": [
+    "st1 is designed for exactly this profile: frequently accessed, throughput-intensive workloads with large sequential I/O — log processing, ETL, data warehouses — at HDD cost. Sustained sequential throughput without a need for low latency or high random IOPS is its purpose.",
+    "gp3 is a sound general-purpose default and lets IOPS and throughput be provisioned independently, but for a purely sequential, throughput-bound workload that does not need SSD latency or IOPS, st1 delivers the required throughput at lower cost.",
+    "io2 is built for I/O-intensive, latency-sensitive workloads such as large transactional databases. The scenario explicitly does not need low latency or high random IOPS, so io2 would be significantly more expensive for no benefit.",
+    "sc1 is the lowest-cost HDD option but is designed for infrequently accessed data, with a lower throughput ceiling and a burst model that cannot sustain daily batch processing of terabytes. It would not deliver the sustained high throughput required."
+  ],
+  "13": [
+    "Two origins plus two cache behaviors is the native design. An ordered behavior with path pattern `/api/*` pointing at the ALB, with TTLs of 0 (or the CachingDisabled managed policy), forwards every API request uncached; the default `*` behavior pointing at S3 with a 7-day default TTL caches the static assets. CloudFront evaluates behaviors in list order, so `/api/*` is matched before the default.",
+    "Origin groups exist for origin failover, not path-based routing. Using Lambda@Edge to pick an origin and bypass caching per request rebuilds, with custom code, what cache behaviors do declaratively.",
+    "With a single default behavior pointing at the ALB, the S3 bucket is never used as an origin, so static assets are not served from S3 at all. Relying purely on origin `Cache-Control` headers also gives weaker guarantees than explicit TTLs in a cache policy.",
+    "Two distributions would work but doubles the management surface and forces the application to use two domain names. A single distribution with multiple origins and cache behaviors is designed for exactly this case."
+  ],
+  "14": [
+    "ElastiCache for Redis meets every requirement: backups (RDB snapshots) for persistence and recovery after a restart, a primary/replica architecture with Multi-AZ automatic failover and read replicas for availability and read scaling, and rich data structures — hashes, lists, sorted sets — for structured product catalog objects.",
+    "Memcached is a simple, fast key-value cache with no persistence and no replication: data on a failed node is lost, and it has no data structures beyond opaque values. It fails the durability, replica and structured-data requirements.",
+    "DAX is an in-memory cache purpose-built to accelerate DynamoDB reads. It is not a general-purpose cache for session data or a catalog served from another database, and offers no general data structures.",
+    "Running a cache on EC2 means owning provisioning, patching, monitoring, scaling and failover yourself. ElastiCache provides all of that as a managed service, so a self-managed cluster is more work for no advantage here."
+  ],
+  "15": [
+    "A permissions boundary sets the maximum permissions an identity can have, and effective permissions are the intersection of the boundary and the identity-based policy — an action must be allowed by both. The boundary allows only `s3:PutObject`, so `s3:GetObject` falls outside it and is implicitly denied.",
+    "The absence of an explicit deny is not enough. Every applicable policy type in the evaluation chain has to affirmatively allow the action, and the boundary is one of those types; it does not allow `s3:GetObject`.",
+    "A boundary applies to every action the principal attempts, not only to privilege-escalation operations. Read requests are bounded like anything else.",
+    "A boundary does not replace the identity-based policy; it intersects with it. It also grants nothing on its own: a boundary allowing `s3:PutObject` would not permit `PutObject` unless the identity-based policy allowed it too."
+  ],
+  "16": [
+    "AWS documents that failover for a Multi-AZ DB instance deployment typically completes in 60–120 seconds, and the standby is passive: it cannot serve read traffic. The endpoint's DNS is repointed to the promoted standby, which is why the application reconnects without configuration changes.",
+    "The standby indeed cannot serve reads, but sub-5-second failover is not what a DNS-based Multi-AZ DB instance failover delivers. The documented figure is 60–120 seconds.",
+    "The failover time is right, but a Multi-AZ DB instance standby does not serve read traffic. Read scaling needs read replicas or a Multi-AZ DB cluster deployment, which is a different deployment type with readable standbys.",
+    "Both halves are wrong: the standby does not serve reads, and 15–30 minutes greatly overstates a failover that typically completes in 60–120 seconds."
+  ],
+  "17": [
+    "Redis supports replication with Multi-AZ automatic failover, so losing one node does not lose the session data held on it, and its sorted set data structure maps directly onto a leaderboard. Both requirements are met by features Memcached lacks.",
+    "Memcached is multi-threaded and fast, but raw throughput is not one of the requirements. Choosing it fails the durability requirement outright, because Memcached nodes are independent and a lost node loses its data.",
+    "Factually wrong on both counts: Memcached offers neither replication across nodes nor persistence to disk.",
+    "Memcached also scales horizontally by adding nodes to a cluster, so horizontal scaling does not distinguish the two engines. Redis is the right choice, but not for this reason."
+  ],
+  "18": [
+    "DynamoDB spreads throughput across partitions by partition key value. Three devices producing 90% of writes concentrate load on a few partitions, which throttle while table-level consumed capacity stays low — the exact symptom. Write sharding appends a suffix to the partition key for those devices so their writes spread across several partitions.",
+    "Raising provisioned capacity spreads more throughput across all partitions, most of which are idle. It is expensive and does not address the skew that concentrates writes on three keys.",
+    "The sort key orders items within a partition; it does not decide which partition an item lands in. Randomising it would not relieve a hot partition, and it would destroy the time-ordered query pattern the sort key exists for.",
+    "Consistency settings apply to reads, not writes. There is no such thing as switching a table to \"strongly consistent writes\", so this option describes a control that does not exist."
+  ],
+  "19": [
+    "A local secondary index supports strongly consistent reads because it shares partitions with the base table and is updated in the same write, but it must be defined when the table is created and cannot be added to an existing table. Both halves of this statement are true.",
+    "A global secondary index can be added to an existing table, but it is maintained asynchronously and supports eventually consistent reads only. It never offers strong consistency.",
+    "Local secondary indexes cannot be added after table creation. The consistency claim is right; the creation-time claim is wrong.",
+    "Local secondary indexes do support strongly consistent reads. The obstacle in this scenario is when an LSI can be created, not whether it offers strong consistency."
+  ],
+  "20": [
+    "S3 Standard-IA has a 30-day minimum storage duration. Transitioning an object out of it at day 20 still incurs the charge for the full 30 days, so the remaining 10 days of Standard-IA storage are billed.",
+    "The minimum storage duration is a billing rule, not a blocked operation, when the two transitions are in separate lifecycle rules as described. The transition happens at day 20; the charge follows.",
+    "Both classes do offer millisecond retrieval, but retrieval performance has no bearing on the minimum storage duration charge, which is about time spent in the class.",
+    "Glacier Instant Retrieval does have a 90-day minimum, but it applies to time spent in Glacier Instant Retrieval going forward. Entering the class does not trigger it; leaving Standard-IA early triggers Standard-IA's."
+  ],
+  "21": [
+    "S3 Intelligent-Tiering exists for unknown or changing access patterns. It monitors each object and moves it between access tiers automatically, charging a small per-object monitoring fee instead of retrieval fees for the frequent and infrequent tiers — the right trade when the pattern per object cannot be predicted.",
+    "Standard-IA lowers storage cost but charges per-GB retrieval fees, so the files that turn out to be popular — accessed constantly for months — could cost more than in S3 Standard.",
+    "A single time-based rule treats every object alike. A file still downloaded constantly at day 30 would be moved to Standard-IA regardless and incur retrieval charges on every subsequent access.",
+    "One Zone-IA stores data in a single Availability Zone, changing the availability and resilience profile, and the question gives no basis for assuming user uploads can be re-obtained if lost."
+  ],
+  "22": [
+    "Spot Instances offer the steepest discount off On-Demand, in exchange for AWS reclaiming capacity with a two-minute warning. A checkpointed batch job with a flexible deadline absorbs interruptions at no cost, so it is the textbook Spot workload.",
+    "A 3-year Standard Reserved Instance is billed for the full term whether or not the instance runs. For a job that runs a few hours per night, most of the commitment would be wasted.",
+    "On-Demand would work, but it is the most expensive option per hour. The workload's interruption tolerance is exactly what makes a cheaper option available, so On-Demand is not the lowest-cost choice.",
+    "A Compute Savings Plan is cheaper than On-Demand and more flexible than Reserved Instances, but it commits to an hourly spend for a year and still costs more than Spot for a workload that can tolerate interruptions."
+  ],
+  "23": [
+    "A gateway VPC endpoint for S3 adds a route that sends S3-bound traffic directly over the AWS network. Gateway endpoints carry no hourly or per-GB charge, so the S3 traffic leaves the NAT gateway's data processing charges entirely, and the instances stay private.",
+    "Interface endpoints, which use PrivateLink, do charge per hour and per GB. An interface endpoint for S3 has its uses — access from on-premises, for instance — but for cutting cost inside the VPC the gateway endpoint is the cheaper choice.",
+    "A NAT instance moves the data processing cost onto an instance you manage, brings back the operational burden and single-instance availability limits NAT gateways exist to remove, and the traffic still leaves the VPC.",
+    "Public IP addresses in a public subnet expose the instances to the internet, which the requirement explicitly rules out."
+  ],
+  "24": [
+    "EBS snapshots are incremental: after the first, each stores only the blocks changed since the previous one. Deleting a snapshot removes only the data unique to it — blocks other snapshots still reference are kept — and every remaining snapshot stays independently restorable to a full volume.",
+    "Snapshots are not full copies after the first. Deleting one typically frees far less than its apparent size, because most of its blocks are shared with neighbouring snapshots.",
+    "This is the intuition the incremental model most often misleads people into, and it states the opposite of the actual guarantee: deleting the oldest snapshot does not invalidate later ones. Each remains a complete restore point.",
+    "Snapshot billing is based on the data actually stored, not the volume's provisioned size. A 500 GB volume holding 100 GB of data does not incur 500 GB of snapshot storage."
+  ],
+  "25": [
+    "Secrets Manager supports more than one form of rotation. For most managed secrets it uses managed rotation, where the service configures and manages rotation itself and no Lambda function is involved.",
+    "Rotation by Lambda function is only one of the forms Secrets Manager offers. Managed rotation and managed external secrets rotation both run without a Lambda function you own.",
+    "Parameter Store is not the way to get rotation without Lambda; managed rotation within Secrets Manager is. This option points at the wrong service.",
+    "Managed rotation does not use a Lambda function at all — not one you write, and not one Secrets Manager generates on your behalf. It is handled by the service directly."
+  ],
+  "26": [
+    "A Multi-AZ DB instance deployment is a high availability feature, not a read scaling one, and the documentation is explicit that the standby cannot serve read traffic. To offload reads you need a read replica or a Multi-AZ DB cluster deployment, which has readable standbys.",
+    "There is no reader endpoint to enable on a Multi-AZ DB instance deployment. The standby is passive by design and cannot be opened to read traffic.",
+    "The standby serves no reads at all, consistent or otherwise. The synchronous replication that keeps it current is for failover, not for queries.",
+    "The standby does not serve reads during failover either; it becomes the new primary. There is no window in which reporting queries would succeed against it as a standby."
+  ],
+  "27": [
+    "The default visibility timeout for a queue is 30 seconds. With 90 seconds of processing, the timeout expires mid-processing, the message becomes visible again, and another consumer receives it — no crash required. Align the timeout with real processing time, or extend it during processing with `ChangeMessageVisibility`.",
+    "Standard queues provide at-least-once delivery, not exactly-once, so duplicates do not prove the producer sent twice. Here the cause is the visibility timeout, not the producer.",
+    "A missing dead-letter queue does not by itself redeliver messages. Redelivery happens when the visibility timeout expires before deletion; a DLQ only changes where a repeatedly failed message eventually goes.",
+    "Short polling does not hand the same message to multiple consumers within a poll. A message received by one consumer is hidden from others for the visibility timeout; it reappears only when that timeout expires."
+  ],
+  "29": [
+    "For a local secondary index, the total size of all indexed items for any single partition key value must be 10 GB or less; once a busy device's item collection reaches that limit, writes for that key fail. Global secondary indexes have no such per-key size restriction.",
+    "The LSI limit is a hard ceiling on writes, not a truncation of query results. Queries do not start returning partial result sets; writes start being rejected.",
+    "A local secondary index is updated in the same write as the base table and never silently stops. What happens at the limit is that the write itself fails.",
+    "This inverts the capacity model: a local secondary index draws read and write capacity from the base table, while a global secondary index is the one with its own provisioned throughput settings."
+  ],
+  "30": [
+    "Two separate 30-day rules, only one of which was removed: the minimum wait before a lifecycle rule may transition to Standard-IA no longer exists, so a 0-day transition is valid, but Standard-IA still bills a 30-day minimum storage duration. Expiring at day 10 incurs a pro-rated charge for the remaining 20 days.",
+    "The 30-day minimum before transitioning to S3 Standard-IA or One Zone-IA was removed in July 2026. A 0-day transition is accepted.",
+    "The minimum storage duration is not limited to the Glacier classes: S3 Standard-IA and One Zone-IA both bill for 30 days. Billing does not simply stop at expiry.",
+    "The minimum duration charge applies whether an object is deleted, overwritten or transitioned away early. Expiring it through a lifecycle rule does not waive it."
+  ],
+  "31": [
+    "An SCP never grants permissions; it sets the maximum available permissions for principals in member accounts, and effective permissions are the intersection of what the SCPs allow and what the identity-based and resource-based policies allow. `dynamodb:CreateTable` is not allowed by the SCP, so it is denied even with `AdministratorAccess` attached. The SCP has to be amended.",
+    "Amending the SCP is the right action, but an SCP does not \"grant\" `dynamodb:*` to anyone and does not \"revoke\" it from an identity policy. It raises or lowers the ceiling; the identity policy is what grants.",
+    "A resource-based policy would not help. SCPs do not disable identity-based policies; the identity policy already allows the action, and what blocks it is the SCP ceiling.",
+    "`AdministratorAccess` does not override SCPs. A user in a member account has only the permissions permitted by every SCP above the account, even with `*/*` attached. The denial comes from the SCP, not from a permissions boundary."
+  ],
+  "32": [
+    "Two documented exemptions: SCPs affect only the member accounts of an organization and have no effect on users or roles in the management account, and SCPs do not affect any service-linked role. Within a member account, though, an SCP does apply to the root user.",
+    "SCPs never apply to the management account, however long you wait. The administrator's success is not a propagation delay; it is the documented behaviour.",
+    "The management account is exempt entirely, not just its root user, and service-linked roles are exempt in their own right — not by inheriting anything from the account they run in.",
+    "SCPs apply to member accounts only, not to all accounts, and service-linked roles are exempt as a class. Deny statements are not \"ignored\" for service principals in general; the exemption is specific to service-linked roles."
+  ],
+  "33": [
+    "OAI does not support S3 server-side encryption with AWS KMS, nor dynamic requests such as PUT, POST or DELETE, and AWS recommends OAC instead for exactly these reasons. Both new requirements are outside what OAI can do, so migrating to OAC is the only way to meet them.",
+    "No key policy change rescues OAI: the documentation states OAI does not support SSE-KMS at all. And this option does nothing about PUT requests, which OAI also cannot handle.",
+    "A bucket configured as a website endpoint must be set up as a custom origin, where neither OAC nor OAI can be used. This makes things worse, not better.",
+    "Migrating to OAC is right, but the reason given is wrong: OAI does not support SSE-KMS. The Region limitation is real too, but it is not what this scenario turns on."
+  ],
+  "34": [
+    "Live replication — Cross-Region and Same-Region — copies new and updated objects as they are written and explicitly does not replicate objects that existed before the rule was configured. Copying the pre-existing 40 TB requires an on-demand S3 Batch Replication job.",
+    "A replication rule has no default prefix filter that would exclude older objects. Removing a filter would not cause pre-existing objects to replicate; live replication simply does not cover them.",
+    "Cross-Region Replication does not backfill existing objects, over 24–48 hours or ever. The 24–48 hour figure describes how long new objects may take to replicate, not a backfill window.",
+    "Existing objects are not replicated when read, and overwriting every object to trigger replication is not the mechanism AWS provides. Batch Replication is."
+  ],
+  "35": [
+    "Provisioned concurrency keeps a number of execution environments pre-initialized so requests are served without a cold start — the fix for the API's latency. Reserved concurrency sets both a floor and a ceiling on a function's concurrency, so it caps how far the batch function can scale and stops it starving the API. Each control solves one of the two problems.",
+    "The controls are swapped. Reserved concurrency does not pre-warm environments, so it does nothing for cold starts, and provisioned concurrency does not cap a function's scaling — it adds cost for pre-initialized capacity the batch function does not need.",
+    "Provisioned concurrency reduces cold starts but does not bound concurrent executions on its own, and applying it to the batch function adds continuous cost for no latency benefit. The batch function needs a cap, which is reserved concurrency.",
+    "Reserved concurrency reserves and caps capacity but does not pre-initialize any execution environments. The API function's cold starts would remain."
+  ]
+}

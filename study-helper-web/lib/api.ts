@@ -33,10 +33,14 @@ export type Question = {
 export type AttemptResult = {
   is_correct: boolean;
   correct_index: number;
-  /** The explanation stored with the question — reviewed alongside it,
-   *  covering why each distractor is wrong. Markdown. Returned for correct
-   *  answers too; it costs nothing and the reasoning is worth reading. */
+  /** The full explanation stored and reviewed with the question. Markdown.
+   *  Shown only when the per-option breakdown below is missing. */
   explanation: string;
+  /** Why the option the candidate picked is wrong (or right), and why the
+   *  correct one is right. Null for questions without a per-option
+   *  breakdown — older content — in which case `explanation` is shown. */
+  selected_option_explanation: string | null;
+  correct_option_explanation: string | null;
 };
 
 export type WeakSpot = {

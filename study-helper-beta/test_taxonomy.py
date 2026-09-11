@@ -91,3 +91,12 @@ def test_import_accepts_a_batch_without_sources():
 def test_import_rejects_a_malformed_sources_field():
     errors = import_questions.validate(_entry(sources="https://docs.aws.amazon.com"), 0)
     assert any("sources" in e for e in errors)
+
+
+def test_import_rejects_option_explanations_of_the_wrong_length():
+    errors = import_questions.validate(_entry(option_explanations=["only", "three", "given"]), 0)
+    assert any("option_explanations" in e for e in errors)
+
+
+def test_import_accepts_four_option_explanations():
+    assert import_questions.validate(_entry(option_explanations=["a", "b", "c", "d"]), 0) == []

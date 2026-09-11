@@ -17,6 +17,7 @@ from sqlmodel.pool import StaticPool
 import api
 from db_schema import (
     Difficulty,
+    OptionExplanation,
     Question as DBQuestion,
     QuestionReport,
     QuestionType,
@@ -167,6 +168,45 @@ def test_wrong_attempt_returns_the_reviewed_explanation(client):
     assert body["correct_index"] == 0
     assert body["explanation"] == MOCK_QUESTION.explanation
     assert "explanation_error" not in body
+
+
+def _seed_option_explanations(question_id):
+    texts = ["7224:7300 is the documented Local Preference community for Private/Transit VIFs.",
+             "7224:7100 sets Low Local Preference, the opposite of what is asked.",
+             "7224:9300 is a Public VIF scope community; it has no Local Preference meaning on a Transit VIF.",
+             "7224:8200 is an AWS-to-customer community for Public VIF outbound routing."]
+    with Session(api.engine) as session:
+        for i, t in enumerate(texts):
+            session.add(OptionExplanation(question_id=question_id, option_index=i, text=t))
+        session.commit()
+    return texts
+
+
+def test_wrong_attempt_returns_only_the_picked_and_correct_reasons(client):
+    """The candidate who picked C should read why C is wrong and why A is
+    right — not the paragraphs about B and D."""
+    user = client.post("/users", json={"email": "c@example.com"}).json()
+    question = _seed_question(client)
+    texts = _seed_option_explanations(question["id"])
+
+    r = client.post("/attempts", json={"user_id": user["id"], "question_id": question["id"], "selected_index": 2})
+    body = r.json()
+    assert body["selected_option_explanation"] == texts[2]
+    assert body["correct_option_explanation"] == texts[0]
+    assert body["explanation"] == MOCK_QUESTION.explanation   # full text still there as fallback
+
+
+def test_attempt_without_per_option_rows_falls_back_to_full_explanation(client):
+    """Older content has no per-option breakdown; the fields are None and
+    the client shows the full explanation instead."""
+    user = client.post("/users", json={"email": "d@example.com"}).json()
+    question = _seed_question(client)
+
+    r = client.post("/attempts", json={"user_id": user["id"], "question_id": question["id"], "selected_index": 1})
+    body = r.json()
+    assert body["selected_option_explanation"] is None
+    assert body["correct_option_explanation"] is None
+    assert body["explanation"] == MOCK_QUESTION.explanation
 
 
 def test_correct_attempt_also_returns_the_explanation(client):

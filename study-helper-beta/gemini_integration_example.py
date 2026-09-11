@@ -108,7 +108,7 @@ _LOWERCASE_FIELDS = {
 # ("metadata": {"domain": ..., "difficulty": ...}) whose contents belong
 # one level up.
 _QUESTION_FIELDS = {
-    "question", "options", "correct_index", "explanation",
+    "question", "options", "correct_index", "explanation", "option_explanations",
     "domain", "concept_tags", "question_type", "difficulty",
 }
 
@@ -228,14 +228,21 @@ def _coerce_question_shape(data: dict) -> dict:
     if not isinstance(out.get("options"), list):
         return out
 
-    # Labelled option objects -> plain strings.
-    texts, flagged_index = [], None
+    # Labelled option objects -> plain strings. If the objects carry their
+    # own rationale, keep it: that is exactly what option_explanations is.
+    texts, flagged_index, rationales = [], None, []
     for index, option in enumerate(out["options"]):
         text, is_correct = _option_to_text(option)
         texts.append(text)
         if is_correct and flagged_index is None:
             flagged_index = index
+        if isinstance(option, dict):
+            rationale = next((option[k] for k in ("explanation", "rationale", "reason", "why")
+                              if isinstance(option.get(k), str)), None)
+            rationales.append(rationale)
     out["options"] = texts
+    if not out.get("option_explanations") and rationales and all(rationales):
+        out["option_explanations"] = rationales
 
     # The answer as a letter, as the option's text, or as a per-option flag.
     if not isinstance(out.get("correct_index"), int) or isinstance(out.get("correct_index"), bool):
@@ -369,6 +376,10 @@ class Question(BaseModel):
     options: list[str]
     correct_index: int
     explanation: str
+    # One entry per option, aligned with `options`: why the correct one is
+    # right, why each distractor is wrong. Optional so an older-style reply
+    # that omits it still validates instead of costing a repair call.
+    option_explanations: list[str] = []
     domain: str
     concept_tags: list[str]
     question_type: Literal["conceptual", "detail_recall"]
@@ -455,7 +466,9 @@ Use official provider terminology; do not treat similar terms as interchangeable
 
 EXPLANATION
 
-Must: explain why the correct answer is correct, explain why each distractor is wrong, identify the relevant documented technical rule, use precise provider-specific terminology, avoid unsupported claims, avoid unnecessary facts not required to justify the answer. Every provider-specific technical claim must be supported by official documentation. Do not turn a context-dependent rule into an unconditional statement. Do not introduce assumptions not present in the question.
+Must: explain why the correct answer is correct, explain why each distractor is wrong, identify the relevant documented technical rule, use precise provider-specific terminology, avoid unsupported claims, avoid unnecessary facts not required to justify the answer.
+
+Also provide "option_explanations": a list of exactly four strings aligned with "options" by position. For the correct option, one to three sentences on why it is right. For each distractor, one to two sentences on why it is wrong for this exact scenario, naming the specific mistake it represents. Each entry must stand on its own — the candidate will see only the entry for the option they chose and the entry for the correct option. Every provider-specific technical claim must be supported by official documentation. Do not turn a context-dependent rule into an unconditional statement. Do not introduce assumptions not present in the question.
 
 EVIDENCE-BASED EXPLANATION
 

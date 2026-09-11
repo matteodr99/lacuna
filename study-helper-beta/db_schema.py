@@ -127,6 +127,7 @@ class Question(SQLModel, table=True):
     attempts: list["Attempt"] = Relationship(back_populates="question")
     reports: list["QuestionReport"] = Relationship(back_populates="question")
     sources: list["QuestionSource"] = Relationship(back_populates="question")
+    option_explanations: list["OptionExplanation"] = Relationship(back_populates="question")
 
 
 class Attempt(SQLModel, table=True):
@@ -184,6 +185,28 @@ class QuestionReport(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     question: Question = Relationship(back_populates="reports")
+
+
+class OptionExplanation(SQLModel, table=True):
+    """Why one specific option is right or wrong, one row per option.
+
+    The stored `explanation` is a single text covering the correct answer and
+    every distractor. That is the right thing for a reviewer to read, and the
+    wrong thing to show a candidate who picked D and now has to find the one
+    paragraph about D in a wall about B and C as well. These rows let the
+    quiz show exactly two things: why the pick was wrong, and why the correct
+    one is right.
+
+    A separate table, like QuestionSource and QuestionReport: no migrations
+    here, and `create_all` adds a table without touching Question. Optional
+    per question — the API falls back to the full explanation when a
+    question has no rows, so older content keeps working."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    question_id: int = Field(foreign_key="question.id", index=True)
+    option_index: int
+    text: str
+
+    question: Question = Relationship(back_populates="option_explanations")
 
 
 class QuestionSource(SQLModel, table=True):

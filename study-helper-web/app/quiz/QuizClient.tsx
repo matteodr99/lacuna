@@ -182,7 +182,9 @@ export default function QuizClient({
               >
                 {result.is_correct ? "Correct." : "Not quite."}
               </p>
-              <ExplanationCard explanation={result.explanation} />
+              {selected !== null && (
+                <ExplanationCard result={result} selectedIndex={selected} />
+              )}
               {/* Keyed on the question so the form resets when the next one
                   loads, instead of showing the previous question's thanks. */}
               <ReportQuestion

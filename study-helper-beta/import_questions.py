@@ -22,6 +22,7 @@ from sqlmodel import Session, select
 from db_schema import (
     EXAM_DOMAINS,
     Difficulty,
+    OptionExplanation,
     Question,
     QuestionSource,
     QuestionType,
@@ -56,6 +57,10 @@ def validate(entry: dict, index: int) -> list[str]:
         errors.append("concept_tags is empty")
     if not isinstance(entry.get("sources", []), list):
         errors.append("sources must be a list of URLs when present")
+    oe = entry.get("option_explanations")
+    if oe is not None and not (isinstance(oe, list) and len(oe) == 4
+                               and all(isinstance(t, str) and t.strip() for t in oe)):
+        errors.append("option_explanations must be exactly 4 non-empty strings, aligned with options")
     return errors
 
 
@@ -120,6 +125,8 @@ def main():
             for url in entry.get("sources", []):
                 session.add(QuestionSource(question_id=question.id, url=url))
                 sourced += 1
+            for index, text in enumerate(entry.get("option_explanations") or []):
+                session.add(OptionExplanation(question_id=question.id, option_index=index, text=text))
             imported += 1
         session.commit()
 

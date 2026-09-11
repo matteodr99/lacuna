@@ -21,6 +21,7 @@ import argparse
 from sqlmodel import Session, select
 
 from db_schema import (
+    OptionExplanation,
     Question,
     QuestionReport,
     QuestionSource,
@@ -69,8 +70,15 @@ def _open_reports(session, question_id: int) -> list[QuestionReport]:
     ).all())
 
 
+def _option_explanations(session, question_id: int) -> dict[int, str]:
+    return {r.option_index: r.text for r in session.exec(
+        select(OptionExplanation).where(OptionExplanation.question_id == question_id)
+    ).all()}
+
+
 def render(q: Question, reports: list[QuestionReport] | None = None,
-           sources: list[str] | None = None) -> None:
+           sources: list[str] | None = None,
+           per_option: dict[int, str] | None = None) -> None:
     print("=" * 72)
     print(f"[id {q.id}] {q.certification}")
     print(f"{q.domain} — {q.question_type.value} / {q.difficulty.value}")
@@ -81,6 +89,10 @@ def render(q: Question, reports: list[QuestionReport] | None = None,
     for i, opt in enumerate(q.options):
         marker = "*" if i == q.correct_index else " "
         print(f"  {marker} {chr(65 + i)}. {opt}")
+        # The candidate sees exactly this line for the option they picked,
+        # so it is reviewed next to the option it justifies.
+        if per_option and i in per_option:
+            print(f"       -> {per_option[i]}")
     print()
     print("EXPLANATION:")
     print(q.explanation)
@@ -118,7 +130,8 @@ def review():
 
         for idx, q in enumerate(pending, 1):
             print(f"\n--- {idx} of {len(pending)} ---")
-            render(q, _open_reports(session, q.id), _sources(session, q.id))
+            render(q, _open_reports(session, q.id), _sources(session, q.id),
+                   _option_explanations(session, q.id))
             print("[a]pprove  [r]eject  [s]kip  [q]uit")
             choice = input("> ").strip().lower()
 
@@ -175,7 +188,8 @@ def review_reported():
                 continue
             reports = by_question[question_id]
             print(f"\n--- {idx} of {len(order)} --- (status: {question.review_status.value})")
-            render(question, reports, _sources(session, question_id))
+            render(question, reports, _sources(session, question_id),
+                   _option_explanations(session, question_id))
             print("[k]eep as is  [r]eject and pull from the bank  [s]kip  [q]uit")
             choice = input("> ").strip().lower()
 

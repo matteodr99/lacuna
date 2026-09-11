@@ -97,6 +97,21 @@ that page by page, where a person without the domain knowledge can't. So:
 `apply_review_2026-09-11.py` is the record of that first pass: what was
 approved, what was corrected, and why.
 
+**The candidate sees two reasons, not the whole explanation.** The stored
+`explanation` covers the correct answer and every distractor — right for a
+reviewer, wrong for someone who picked D and has to find the one paragraph
+about D in a wall that also covers B and C. `OptionExplanation` holds one
+reason per option, and `POST /attempts` returns just the one for the pick and
+the one for the correct answer; the UI falls back to the full text for any
+question without rows. A separate table for the usual reason (no migrations;
+`create_all` adds tables without touching `Question`). The generation prompt
+now asks for `option_explanations` aligned with `options`, optional in the
+schema so an older-style reply doesn't cost a repair call, and the shape
+repair harvests per-option rationale when the model tucks it inside option
+objects. The 34 approved questions were backfilled by hand from their
+reviewed explanations — `option_explanations_2026-09-11.json` is the record —
+which is restructuring of verified text, not new claims.
+
 **`domain` and `concept_tags` are load-bearing, so neither is free text any more.**
 `select_next_question()` prefers questions tagged with the user's weak
 concepts and `analyze_weak_spots` reasons over the same strings, so a tag that
@@ -285,7 +300,7 @@ Read `api.py` for exact request/response shapes. Endpoints:
 
 ## Current state
 
-Backend done, 34 tests passing (`test_api.py`, `test_parsing.py`,
+Backend done, 37 tests passing (`test_api.py`, `test_parsing.py`,
 `test_taxonomy.py`). The question bank holds 35 questions: **34 approved, 1
 rejected** as a duplicate, reviewed on 2026-09-11. 14 came from the Gemini seed
 run of 2026-09-08, 10 were imported by hand on 2026-09-10, 6 more

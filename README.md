@@ -110,7 +110,7 @@ term worth ranking for.
 |---|---|
 | `POST /users` | Create a user. |
 | `GET /questions/next` | Next approved, unanswered question, steered by weak concepts. Never returns `correct_index` or `explanation`. |
-| `POST /attempts` | Submit an answer; returns correctness and the reviewed explanation. |
+| `POST /attempts` | Submit an answer; returns correctness, why the picked option is wrong and why the correct one is right. |
 | `POST /questions/{id}/report` | Flag a question as wrong, stale or ambiguous. |
 | `GET /users/{id}/weak-spots` | Pattern analysis over answer history. |
 | `POST /users/{id}/study-plan` | A time-budgeted plan to the exam date. |
@@ -123,7 +123,9 @@ candidate picked. It didn't: the generation prompt already requires the stored
 explanation to say why each distractor is wrong, so it covers every pick. And
 the live version was the one piece of model text reaching users without
 review, and the one thing at test time that could fail on quota. Now the
-candidate reads the same text the reviewer approved.
+candidate reads the same text the reviewer approved — and only the part that
+concerns them: why the option they picked is wrong, and why the correct one is
+right, not the paragraphs about the other two distractors.
 
 ## Running it
 
@@ -141,7 +143,7 @@ bug with Tailwind's native optional dependencies):
 pnpm install && pnpm dev
 ```
 
-Tests: `.venv/bin/python -m pytest` — 34 passing.
+Tests: `.venv/bin/python -m pytest` — 37 passing.
 
 Filling the bank:
 

@@ -31,6 +31,7 @@ from typing import Optional
 from sqlmodel import Session, select
 
 from db_schema import (
+    OptionExplanation,
     Question,
     ReviewStatus,
     canonical_tags,
@@ -299,7 +300,7 @@ def main():
             continue
 
         with Session(engine) as session:
-            session.add(Question(
+            question = Question(
                 certification=job["certification"],
                 domain=job["domain"],
                 question_text=result.question,
@@ -310,7 +311,12 @@ def main():
                 question_type=result.question_type,
                 difficulty=result.difficulty,
                 review_status=ReviewStatus.pending,
-            ))
+            )
+            session.add(question)
+            if len(result.option_explanations) == len(result.options):
+                session.flush()
+                for index, text in enumerate(result.option_explanations):
+                    session.add(OptionExplanation(question_id=question.id, option_index=index, text=text))
             session.commit()
         created += 1
         print("ok")

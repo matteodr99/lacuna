@@ -25,6 +25,7 @@ from sqlmodel import Session, select
 
 from db_schema import (
     Attempt,
+    OptionExplanation,
     Question,
     QuestionReport,
     ReportReason,
@@ -183,13 +184,15 @@ class SubmitAttemptRequest(BaseModel):
 class AttemptResult(BaseModel):
     is_correct: bool
     correct_index: int
-    # The explanation stored with the question. It was generated (or written)
-    # together with the question and reviewed with it, and the generation
-    # prompt requires it to cover why each distractor is wrong — so it serves
-    # whichever option the candidate picked. This used to be a live Gemini
-    # call, which was the one piece of model text reaching users without
-    # review, and the one thing at test time that could fail on quota.
+    # The full explanation stored and reviewed with the question. Kept as the
+    # fallback for questions that have no per-option breakdown yet.
     explanation: str
+    # Why the option the candidate picked is wrong (or right), and why the
+    # correct one is right — so the UI can show just those two instead of
+    # the whole text about every distractor. None when the question has no
+    # per-option rows; the client then shows `explanation`.
+    selected_option_explanation: Optional[str] = None
+    correct_option_explanation: Optional[str] = None
 
 
 @app.post("/attempts", response_model=AttemptResult)
@@ -208,10 +211,18 @@ def submit_attempt(body: SubmitAttemptRequest, session: Session = Depends(get_se
     session.add(attempt)
     session.commit()
 
+    by_option = {
+        row.option_index: row.text
+        for row in session.exec(
+            select(OptionExplanation).where(OptionExplanation.question_id == question.id)
+        ).all()
+    }
     return AttemptResult(
         is_correct=body.selected_index == question.correct_index,
         correct_index=question.correct_index,
         explanation=question.explanation,
+        selected_option_explanation=by_option.get(body.selected_index),
+        correct_option_explanation=by_option.get(question.correct_index),
     )
 
 

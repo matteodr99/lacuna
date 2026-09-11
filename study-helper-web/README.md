@@ -38,6 +38,8 @@ only serves questions that passed review rather than inventing more on demand.
 `correct_index` or `explanation`; both arrive only after an attempt is
 submitted, so the frontend cannot leak the answer.
 
-**The explanation is instant and always there.** It's the text stored and
-reviewed with the question, returned for right and wrong answers alike — not a
-live model call, so it can't be slow and can't fail on quota.
+**The explanation is instant, always there, and only about your pick.** It's
+text stored and reviewed with the question — not a live model call, so it can't
+be slow and can't fail on quota. After a wrong answer you see why that option
+is wrong and why the correct one is right, nothing about the other distractors.
+Questions without a per-option breakdown fall back to the full explanation.
