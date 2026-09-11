@@ -331,6 +331,16 @@ numeric id, so on first visit the client creates a throwaway user
 (`lib/session.ts`). Clearing site data creates a new learner and loses history —
 acceptable while there's nothing to protect, and the seam real auth replaces.
 
+The stored id is only as durable as the database behind it, and the dev
+database gets recreated. A browser that had visited once kept sending an id
+that no longer existed and was stuck on "User not found" for good — found the
+first time the maintainer opened the app in their own browser rather than the
+one used during development. `withGuestUser()` now treats that answer as
+"start over": discard the id, create a fresh guest, retry once. It also keeps
+that 404 apart from the other one the quiz sees, "bank exhausted", which is a
+normal end state; before, a stale session could read as "you've answered every
+question".
+
 **`/weak-spots` reports quota as the likely cause of failure.** It is now the
 only user-facing endpoint that calls the model live, and the whole page is that
 one call, so there is nothing to degrade to — it says what failed instead of

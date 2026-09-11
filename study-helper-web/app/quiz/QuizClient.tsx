@@ -12,7 +12,7 @@ import {
   type AttemptResult,
   type Question,
 } from "@/lib/api";
-import { getOrCreateUserId } from "@/lib/session";
+import { isMissingUser, withGuestUser } from "@/lib/session";
 
 type Phase =
   | { status: "loading" }
@@ -49,18 +49,22 @@ export default function QuizClient({
     let cancelled = false;
     (async () => {
       try {
-        const resolvedUserId =
-          userIdRef.current ?? (await getOrCreateUserId(certification));
-        userIdRef.current = resolvedUserId;
-        const next = await fetchNextQuestion(resolvedUserId, certification);
+        const next = await withGuestUser(async (resolvedUserId) => {
+          userIdRef.current = resolvedUserId;
+          return fetchNextQuestion(resolvedUserId, certification);
+        }, certification);
         if (cancelled) return;
-        setUserId(resolvedUserId);
+        setUserId(userIdRef.current);
         setQuestion(next);
         setSelected(null);
         setPhase({ status: "answering" });
       } catch (error) {
         if (cancelled) return;
-        if (error instanceof ApiError && error.status === 404) {
+        // Two different 404s come through here. "User not found" has already
+        // been retried once with a fresh guest by withGuestUser, so if it's
+        // still that, it's a real error; the other 404 means the approved
+        // bank is used up, which is a normal end state.
+        if (error instanceof ApiError && error.status === 404 && !isMissingUser(error)) {
           setPhase({ status: "exhausted" });
           return;
         }
@@ -84,11 +88,14 @@ export default function QuizClient({
     if (selected === null || question === null || userIdRef.current === null) return;
     setPhase({ status: "submitting" });
     try {
-      const result = await submitAttempt({
-        user_id: userIdRef.current,
-        question_id: question.id,
-        selected_index: selected,
-      });
+      const result = await withGuestUser((resolvedUserId) => {
+        userIdRef.current = resolvedUserId;
+        return submitAttempt({
+          user_id: resolvedUserId,
+          question_id: question.id,
+          selected_index: selected,
+        });
+      }, certification);
       setScore((s) => ({
         correct: s.correct + (result.is_correct ? 1 : 0),
         answered: s.answered + 1,

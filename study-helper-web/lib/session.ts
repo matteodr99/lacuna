@@ -1,6 +1,6 @@
 "use client";
 
-import { createUser, type User } from "@/lib/api";
+import { ApiError, createUser, type User } from "@/lib/api";
 
 /**
  * There is no auth yet. The backend identifies users by a numeric id, so
@@ -59,5 +59,39 @@ export function clearSession() {
     window.localStorage.removeItem(STORAGE_KEY);
   } catch {
     // nothing to clear
+  }
+}
+
+/** True when the API says the user id we sent no longer exists. Distinct
+ *  from the other 404 the quiz sees — "bank exhausted" — which must not be
+ *  confused with this one, or a stale session reads as "you've answered
+ *  everything". */
+export function isMissingUser(error: unknown): boolean {
+  return (
+    error instanceof ApiError && error.status === 404 && /user not found/i.test(error.message)
+  );
+}
+
+/**
+ * Run `task` as the guest user, recovering if that user has vanished.
+ *
+ * The stored id is only as durable as the database behind it, and the dev
+ * database gets recreated (no migrations). Before this, a browser that had
+ * visited once kept sending an id that no longer existed and was stuck on
+ * "User not found" for good. Now the first such answer discards the stored
+ * id, creates a fresh guest and runs the task once more — history is lost,
+ * which was already true, but the app keeps working.
+ */
+export async function withGuestUser<T>(
+  task: (userId: number) => Promise<T>,
+  certification?: string,
+): Promise<T> {
+  const userId = await getOrCreateUserId(certification);
+  try {
+    return await task(userId);
+  } catch (error) {
+    if (!isMissingUser(error)) throw error;
+    clearSession();
+    return task(await getOrCreateUserId(certification));
   }
 }

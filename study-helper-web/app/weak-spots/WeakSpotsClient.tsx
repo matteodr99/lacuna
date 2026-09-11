@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ApiError, fetchWeakSpots, type WeakSpot, type WeakSpotAnalysis } from "@/lib/api";
-import { getOrCreateUserId } from "@/lib/session";
+import { withGuestUser } from "@/lib/session";
 
 const TYPE_LABEL: Record<WeakSpot["type"], string> = {
   true_gap: "Real gap",
@@ -30,8 +30,7 @@ export default function WeakSpotsClient() {
     let cancelled = false;
     (async () => {
       try {
-        const userId = await getOrCreateUserId();
-        const analysis = await fetchWeakSpots(userId);
+        const analysis = await withGuestUser((userId) => fetchWeakSpots(userId));
         if (!cancelled) setState({ status: "ready", analysis });
       } catch (error) {
         if (cancelled) return;
