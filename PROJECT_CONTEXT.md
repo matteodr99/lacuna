@@ -398,6 +398,18 @@ Open Graph and the sitemap; `NEXT_PUBLIC_SITE_URL` overrides it when the
 domain changes. The share card is `app/opengraph-image.tsx`, generated from
 the hero's words so it can't drift from the page.
 
+**Amber is the one accent, and it means "the thing to pin down".** Chosen
+on 2026-09-15 over indigo/ink: the highlighter on the page is the most
+immediate study cue, and it doesn't collide with the two semantic colours
+already in use (emerald = correct, red = wrong). The rule that keeps it a
+language rather than decoration: it appears only where a specific detail
+is being marked — the gaps and labels in the hero illustration, the
+`Detail recall` badge (never `Conceptual`), the option you've selected but
+not yet submitted, the "Checked against" sources box, section eyebrows and
+the pipeline icons. Never for running text (amber on white fails contrast)
+and never on the primary button. Tokens: `amber-500`/`amber-400` for
+strokes, `amber-700`/`amber-300` for text, light/dark respectively.
+
 The layout no longer fixes the content width: `components/Container.tsx`
 is the reading column the app pages opt into, and the landing sets its own
 (wider hero beside an inline-SVG illustration, full-bleed bands). The

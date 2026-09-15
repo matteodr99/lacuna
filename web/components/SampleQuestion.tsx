@@ -58,8 +58,8 @@ export default function SampleQuestion({ quizHref }: { quizHref: string }) {
               correct_option_explanation: SAMPLE_OPTION_EXPLANATIONS[SAMPLE_CORRECT_INDEX],
             }}
           />
-          <div className="flex flex-col gap-2 rounded-lg border border-dashed border-zinc-300 p-5 dark:border-zinc-700">
-            <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+          <div className="flex flex-col gap-2 rounded-lg border border-dashed border-amber-400 bg-amber-50/40 p-5 dark:border-amber-500/50 dark:bg-amber-950/20">
+            <h3 className="text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">
               Checked against
             </h3>
             <ul className="flex flex-col gap-1 text-sm">

@@ -23,11 +23,22 @@ export default function OpenGraphImage() {
           fontFamily: "ui-sans-serif, system-ui, sans-serif",
         }}
       >
-        <div style={{ fontSize: 28, fontWeight: 600, letterSpacing: -0.5 }}>Lacuna</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 28, fontWeight: 600, letterSpacing: -0.5 }}>
+          <div
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 6,
+              border: "2.5px dashed #fbbf24",
+            }}
+          />
+          Lacuna
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <div style={{ fontSize: 64, fontWeight: 600, lineHeight: 1.1, letterSpacing: -2 }}>
             The details you forget, not the concepts you know
           </div>
+          <div style={{ width: 120, height: 8, borderRadius: 4, background: "#fbbf24" }} />
           <div style={{ fontSize: 28, color: "#a1a1aa", lineHeight: 1.4 }}>
             AWS SAA-C03 practice questions for experienced engineers — every claim
             checked against the official documentation.

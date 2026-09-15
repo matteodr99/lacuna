@@ -81,7 +81,7 @@ function SectionHeading({ id, children }: { id?: string; children: React.ReactNo
   return (
     <h2
       id={id}
-      className="text-sm font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+      className="text-sm font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400"
     >
       {children}
     </h2>

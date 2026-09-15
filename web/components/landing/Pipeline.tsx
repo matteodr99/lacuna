@@ -79,7 +79,7 @@ export default function Pipeline() {
       />
       {STEPS.map((step, index) => (
         <li key={step.title} className="relative flex gap-4 md:flex-col md:items-center md:text-center">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-zinc-300 bg-white text-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-300">
             {step.icon}
           </span>
           <div className="flex flex-col gap-1 pt-2 md:pt-0">

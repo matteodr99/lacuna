@@ -2,7 +2,9 @@
  * The hero graphic: a field of things the candidate knows, with a few
  * tiles missing — the gaps — each labelled with the kind of detail the
  * bank targets. Inline SVG styled with the same zinc utilities as the
- * page, so it follows light/dark without a second asset.
+ * page, so it follows light/dark without a second asset. The gaps and
+ * their labels are the one place the amber accent appears in the hero:
+ * amber is the highlighter, and it marks the thing to remember.
  *
  * Decorative: the heading next to it says the same thing in words.
  */
@@ -50,7 +52,7 @@ export default function GapIllustration({ className = "" }: { className?: string
             rx={5}
             fill="none"
             strokeDasharray="3 3"
-            className="stroke-zinc-900 dark:stroke-zinc-100"
+            className="stroke-amber-500 dark:stroke-amber-400"
           />
         ) : (
           <rect
@@ -79,7 +81,7 @@ export default function GapIllustration({ className = "" }: { className?: string
               y1={cy}
               x2={gap.dx < 0 ? chipX + chipW : chipX}
               y2={chipY + chipH / 2}
-              className="stroke-zinc-400 dark:stroke-zinc-500"
+              className="stroke-amber-500/60 dark:stroke-amber-400/60"
             />
             <rect
               x={chipX}
@@ -87,14 +89,14 @@ export default function GapIllustration({ className = "" }: { className?: string
               width={chipW}
               height={chipH}
               rx={4}
-              className="fill-white stroke-zinc-300 dark:fill-zinc-950 dark:stroke-zinc-700"
+              className="fill-white stroke-amber-500 dark:fill-zinc-950 dark:stroke-amber-400"
             />
             <text
               x={chipX + 8}
               y={chipY + 14}
               fontSize={11}
               fontFamily="var(--font-geist-mono), ui-monospace, monospace"
-              className="fill-zinc-800 dark:fill-zinc-200"
+              className="fill-amber-800 dark:fill-amber-200"
             >
               {gap.label}
             </text>

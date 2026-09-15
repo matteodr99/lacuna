@@ -6,9 +6,15 @@ const TYPE_LABEL: Record<Question["question_type"], string> = {
   detail_recall: "Detail recall",
 };
 
-function Badge({ children }: { children: React.ReactNode }) {
+function Badge({ children, accent = false }: { children: React.ReactNode; accent?: boolean }) {
   return (
-    <span className="rounded-full border border-zinc-200 px-2 py-0.5 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-400">
+    <span
+      className={
+        accent
+          ? "rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-800 dark:border-amber-500/40 dark:bg-amber-950/40 dark:text-amber-300"
+          : "rounded-full border border-zinc-200 px-2 py-0.5 text-xs text-zinc-600 dark:border-zinc-800 dark:text-zinc-400"
+      }
+    >
       {children}
     </span>
   );
@@ -35,7 +41,11 @@ export default function QuestionCard({
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-2">
         <Badge>{question.domain}</Badge>
-        <Badge>{TYPE_LABEL[question.question_type]}</Badge>
+        {/* Detail-recall questions are the product's reason to exist, and
+            amber is the highlighter: the one badge that gets the accent. */}
+        <Badge accent={question.question_type === "detail_recall"}>
+          {TYPE_LABEL[question.question_type]}
+        </Badge>
         <Badge>{question.difficulty}</Badge>
       </div>
 
@@ -57,7 +67,9 @@ export default function QuestionCard({
           } else if (isWrongPick) {
             tone = "border-red-500 bg-red-50 dark:border-red-600 dark:bg-red-950/40";
           } else if (isSelected) {
-            tone = "border-zinc-900 bg-white dark:border-zinc-100 dark:bg-zinc-900";
+            // Amber is the accent for "the thing to pin down": the pick
+            // you're about to commit to, before it's judged.
+            tone = "border-amber-500 bg-amber-50/60 dark:border-amber-400 dark:bg-amber-950/30";
           }
 
           return (
