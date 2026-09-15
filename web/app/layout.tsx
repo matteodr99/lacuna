@@ -41,7 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
         <header className="border-b border-zinc-200 dark:border-zinc-800">
-          <nav className="mx-auto flex w-full max-w-3xl items-center justify-between px-6 py-4">
+          <nav className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
             <Link href="/" className="font-semibold tracking-tight">
               Lacuna
             </Link>
@@ -53,9 +53,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </Link>
           </nav>
         </header>
-        <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">{children}</main>
+        <main className="flex flex-1 flex-col">{children}</main>
         <footer className="border-t border-zinc-200 dark:border-zinc-800">
-          <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-6 text-xs text-zinc-500 dark:text-zinc-400">
+          <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-6 text-xs text-zinc-500 dark:text-zinc-400">
             <span>Lacuna — practice for the gaps, not the basics.</span>
             <a
               href="https://github.com/matteodr99/lacuna"

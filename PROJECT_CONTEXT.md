@@ -398,6 +398,12 @@ Open Graph and the sitemap; `NEXT_PUBLIC_SITE_URL` overrides it when the
 domain changes. The share card is `app/opengraph-image.tsx`, generated from
 the hero's words so it can't drift from the page.
 
+The layout no longer fixes the content width: `components/Container.tsx`
+is the reading column the app pages opt into, and the landing sets its own
+(wider hero beside an inline-SVG illustration, full-bleed bands). The
+illustration and the pipeline icons are inline SVG styled with the same
+zinc utilities as the text, so light/dark needs no second asset.
+
 `.claude/launch.json` starts `next dev` through the Node 20 binary and
 Next's real JS entry (`node_modules/next/dist/bin/next`), not the
 `.bin/next` shim — that shim is a shell script and Node refuses it.
