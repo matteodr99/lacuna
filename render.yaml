@@ -17,5 +17,11 @@ services:
         sync: false   # paste the Neon connection string in the dashboard
       - key: GEMINI_API_KEY
         sync: false   # never in the repo
+      # The code default (gemini-2.5-flash) is refused for API keys created
+      # after Google closed that model to new projects — a 404 on the first
+      # /weak-spots call, seen at the first deploy. 3.6-flash is the model
+      # Google's error names, verified live on 2026-09-15.
+      - key: GEMINI_MODEL
+        value: gemini-3.6-flash
       - key: ALLOWED_ORIGINS
         sync: false   # the Vercel URL, e.g. https://lacuna-cloud.vercel.app

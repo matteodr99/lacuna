@@ -260,8 +260,15 @@ development:
   generated numbers trustworthy. When it runs out, use `import_questions.py`
   instead of generating without grounding.
 - `MODEL` reads `GEMINI_MODEL` from the environment so a switch needs no code
-  edit. Default is `gemini-3.7-flash` — chosen because 2.5-flash produced the
-  shape drift below, but **not yet verified against a successful call**.
+  edit. The code default is `gemini-2.5-flash` (see the weak-spots notes
+  below for why), **but that model is closed to new Google projects**: the
+  production key, created on 2026-09-15 for the first deploy, got
+  `404 … no longer available to new users … use gemini-3.6-flash` on the
+  very first `/weak-spots` call. `render.yaml` therefore sets
+  `GEMINI_MODEL=gemini-3.6-flash`, verified live the same day (14.7s, sound
+  analysis). The local key predates the cutoff and still gets 2.5-flash.
+  A `_interact()` fallback doesn't help here: the 404 isn't a 5xx, and it's
+  the same answer for every request on that key.
 - The AI Studio rate-limit dashboard defaults to *peak usage over 28 days*,
   not today's consumption. Reading it as "requests left today" is wrong, and
   cost one wasted seeding attempt.
@@ -324,6 +331,17 @@ Data note: `cert_prep.db` is SQLite for dev, no migrations set up. Schema
 changes currently mean deleting the file — or, as every addition since the
 reports table has done, adding a new table instead of a column, which
 `create_all` handles. Alembic is still the right answer before real users.
+
+**Deployed on 2026-09-15**: API at `https://lacuna-api.onrender.com`
+(Render, blueprint from `render.yaml`), frontend at
+`https://lacuna-zeta.vercel.app` (Vercel, root directory `web`,
+`NEXT_PUBLIC_API_URL` set — it is inlined at build time, so changing it
+means a redeploy without build cache, which cost one round the first time).
+`ALLOWED_ORIGINS` on Render carries the Vercel origin. The full quiz flow
+and `/weak-spots` were exercised in the browser against production the same
+day. The free Render instance sleeps after 15 minutes idle; the first
+request after that waits ~10s on "Loading question…", which is the reason
+for the uptime ping `render.yaml` mentions.
 
 **Production is Postgres on Neon, at zero cost, and the choice was forced.**
 The constraint was "spend nothing". The free backend host (Render) wipes its
