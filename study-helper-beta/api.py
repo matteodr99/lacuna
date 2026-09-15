@@ -14,6 +14,7 @@ which passed review alongside it; no model is called at test time.
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -60,7 +61,12 @@ app = FastAPI(title="Cert Prep API", lifespan=lifespan)
 # Next.js dev server (localhost:3000) can't call this API (localhost:8000)
 # at all. Keep this list explicit — never use ["*"] once real users and
 # credentials are involved. Add the deployed frontend URL here at launch.
-ALLOWED_ORIGINS = ["http://localhost:3000"]
+# The dev frontend by default; in production ALLOWED_ORIGINS carries the
+# deployed frontend's origin (comma-separated if there are several). Never
+# "*" — the app sends credentials.
+ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000").split(",") if o.strip()
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -95,6 +101,13 @@ async def unhandled_exception_handler(request, exc: Exception):
 def get_session():
     with Session(engine) as session:
         yield session
+
+
+@app.get("/health")
+def health():
+    """For the uptime ping that keeps a free-tier instance from sleeping,
+    and for the host's own health check. Touches nothing."""
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------

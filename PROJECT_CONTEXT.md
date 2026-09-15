@@ -313,7 +313,21 @@ The weak-spots page has only been exercised on its failure path — its happy
 path needs a `GEMINI_API_KEY` and one live call.
 
 Data note: `cert_prep.db` is SQLite for dev, no migrations set up. Schema
-changes currently mean deleting the file. Alembic before production.
+changes currently mean deleting the file — or, as every addition since the
+reports table has done, adding a new table instead of a column, which
+`create_all` handles. Alembic is still the right answer before real users.
+
+**Production is Postgres on Neon, at zero cost, and the choice was forced.**
+The constraint was "spend nothing". The free backend host (Render) wipes its
+disk on every restart, so SQLite there would lose users and history — and the
+guest-session repair exists precisely because that happened locally. Neon's
+free Postgres is the persistent piece; SQLModel needs no model changes, only
+`DATABASE_URL` (rewritten to the psycopg 3 driver scheme, since Neon hands out
+`postgresql://`). The bank is copied there with `migrate_bank.py`, which
+carries questions, sources and option explanations only, preserves ids so
+the foreign keys line up, and moves Postgres's sequences past them so the next
+approval doesn't collide. Users and attempts are never copied: they belong to
+whichever database the users are actually in.
 
 ## Frontend goals
 

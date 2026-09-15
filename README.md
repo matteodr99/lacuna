@@ -155,6 +155,30 @@ python review_questions.py                      # approve/reject, sources on scr
 python review_questions.py --reported           # re-review what users flagged
 ```
 
+## Deploying it for free
+
+Three services, all sign in with GitHub, none asks for a card:
+
+| Piece | Service | Notes |
+|---|---|---|
+| `study-helper-web/` | [Vercel](https://vercel.com) Hobby | Root directory `study-helper-web`; set `NEXT_PUBLIC_API_URL` to the Render URL. |
+| `study-helper-beta/` | [Render](https://render.com) free web service | `render.yaml` at the repo root describes it; set `DATABASE_URL`, `GEMINI_API_KEY`, `ALLOWED_ORIGINS`. |
+| Database | [Neon](https://neon.tech) Postgres free tier | The connection string is `DATABASE_URL`. |
+
+The database is Postgres in production because Render's free disk is wiped on
+every restart; SQLite would take users and history with it. The models don't
+change, only the URL. Populate it once from the local bank:
+
+```bash
+python migrate_bank.py --to "$DATABASE_URL"
+```
+
+Two costs of the free tier worth knowing: the Render instance sleeps after
+15 minutes idle and the first request after that takes 30–60 seconds — a
+free uptime ping every 10 minutes (cron-job.org, UptimeRobot) against
+`/health` keeps it awake — and Neon's free tier suspends compute when idle,
+which adds a second or so to the first query after a quiet spell.
+
 ## Constraints worth knowing
 
 **The Gemini free tier shapes development**: 5 requests/minute, 20/day, per

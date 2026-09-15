@@ -16,6 +16,7 @@ Setup:
 """
 
 import random
+import os
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
@@ -258,10 +259,33 @@ class StudyPlan(SQLModel, table=True):
 
 
 # ---------------------------------------------------------------------
-# Engine — SQLite for local dev, swap the URL for Postgres in production
+# Engine — SQLite for local dev, Postgres in production via DATABASE_URL
 # ---------------------------------------------------------------------
 
-engine = create_engine("sqlite:///cert_prep.db", echo=False)
+def _database_url() -> str:
+    """SQLite next to the code by default; whatever DATABASE_URL says
+    otherwise. Production runs on a free host whose disk is wiped on every
+    restart, so the data lives in a managed Postgres (Neon) instead — the
+    models don't change, only this URL does.
+
+    Neon hands out `postgresql://`, which SQLAlchemy 2 would route to the
+    psycopg2 driver; the one installed is psycopg 3, so the scheme is
+    rewritten to say so."""
+    url = os.environ.get("DATABASE_URL", "sqlite:///cert_prep.db")
+    if url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url[len("postgresql://"):]
+    return url
+
+
+DATABASE_URL = _database_url()
+
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    # Managed Postgres drops idle connections; a pre-ping replaces a dead
+    # one silently instead of failing the first request after a quiet spell.
+    pool_pre_ping=True,
+)
 
 
 def create_db_and_tables():
