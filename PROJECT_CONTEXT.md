@@ -5,16 +5,24 @@ the gap that experienced candidates actually have: not "I don't understand the
 concepts" but "I don't remember the granular details layered on top of concepts
 I already know" — route propagation rules, specific thresholds, edge cases.
 
+The project is **Lacuna** — named on 2026-09-15, before the first deploy, so
+no public URL would carry the working title "Study Helper". A lacuna is a gap
+in knowledge, which is what the weak-spots analysis finds and the product
+fills; it is also the one candidate that reads identically in Italian and
+English, the two languages this project lives in. The folders were renamed to
+`api/` and `web/` at the same time. The Python venv survived because every
+invocation goes through `.venv/bin/python -m`, never the shebang scripts.
+
 Two projects, kept separate on purpose:
-- `study-helper-beta/` — Python backend (FastAPI + SQLModel + Gemini)
-- `study-helper-web/` — Next.js frontend (TypeScript, Tailwind, App Router)
+- `api/` — Python backend (FastAPI + SQLModel + Gemini)
+- `web/` — Next.js frontend (TypeScript, Tailwind, App Router)
 
 The backend is working and tested. Do not rewrite it in TypeScript. Next.js does
 the UI and talks to FastAPI over HTTP.
 
 ## Toolchain traps
 
-`study-helper-web` uses **pnpm**, not npm (npm has a bug with Tailwind's native
+`web` uses **pnpm**, not npm (npm has a bug with Tailwind's native
 optional dependencies). Use `pnpm install`, `pnpm dev`, `pnpm add`.
 
 Two versions of each tool are on this machine and only one combination works:
@@ -29,7 +37,7 @@ Two versions of each tool are on this machine and only one combination works:
   invoke the local binary (`./node_modules/.bin/next build`) rather than
   `pnpm build`, which would pick up pnpm 12.
 
-In `study-helper-beta`, the venv was created at an older path, so its `pip`
+In `api`, the venv was created at an older path, so its `pip`
 shebang is dead. Use `.venv/bin/python -m pip` and `.venv/bin/python -m pytest`.
 
 ## Architecture decisions that aren't obvious from the code
@@ -282,12 +290,12 @@ to an index, and it stops there. When the model omits `domain` or
 Filling those in would mean the bank quietly containing metadata nobody
 wrote — the exact failure the review gate exists to catch.
 
-Failures now write the raw model text to `study-helper-beta/failed_generations/`
+Failures now write the raw model text to `api/failed_generations/`
 so a spent request leaves something reviewable instead of only a traceback.
 
 ## Backend API
 
-Run: `uvicorn api:app --reload` (port 8000) from `study-helper-beta`, venv active,
+Run: `uvicorn api:app --reload` (port 8000) from `api`, venv active,
 `GEMINI_API_KEY` set. CORS already allows `http://localhost:3000`.
 
 Read `api.py` for exact request/response shapes. Endpoints:
@@ -341,7 +349,7 @@ whichever database the users are actually in.
 
 **No auth: the browser holds a guest user id.** The API identifies users by a
 numeric id, so on first visit the client creates a throwaway user
-(`guest-<uuid>@study-helper.local`) and keeps the id in `localStorage`
+(`guest-<uuid>@lacuna.local`) and keeps the id in `localStorage`
 (`lib/session.ts`). Clearing site data creates a new learner and loses history —
 acceptable while there's nothing to protect, and the seam real auth replaces.
 

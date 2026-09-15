@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Study Helper — adaptive cloud certification practice",
+  title: "Lacuna — adaptive cloud certification practice",
   description:
     "Practice questions for AWS, Azure and GCP certifications, focused on the granular details experienced engineers actually forget. Every question is checked against the official documentation before it reaches you.",
 };
@@ -29,7 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <header className="border-b border-zinc-200 dark:border-zinc-800">
           <nav className="mx-auto flex w-full max-w-3xl items-center justify-between px-6 py-4">
             <Link href="/" className="font-semibold tracking-tight">
-              Study Helper
+              Lacuna
             </Link>
             <Link
               href="/weak-spots"

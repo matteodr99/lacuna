@@ -1,4 +1,4 @@
-# Secrets. study-helper-beta/.gitignore already covers its own .env, but a
+# Secrets. api/.gitignore already covers its own .env, but a
 # root-level rule means a future subproject can't reintroduce the hole.
 .env
 .env.*

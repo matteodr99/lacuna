@@ -1,6 +1,6 @@
-# study-helper-web
+# lacuna-web
 
-Next.js frontend for Study Helper. See the [root README](../README.md) for what
+Next.js frontend for Lacuna. See the [root README](../README.md) for what
 the project is and why it is built this way.
 
 ## Running
@@ -15,7 +15,7 @@ pnpm dev
 
 The API base URL comes from `NEXT_PUBLIC_API_URL` in `.env.local`, defaulting to
 `http://localhost:8000`. The backend must be running: start it from
-`study-helper-beta/` before loading a quiz.
+`api/` before loading a quiz.
 
 ## What's here
 

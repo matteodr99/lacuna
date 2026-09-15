@@ -3,10 +3,10 @@
 # is Neon, not a file, and why an external uptime ping is worth setting up.
 services:
   - type: web
-    name: study-helper-api
+    name: lacuna-api
     runtime: python
     plan: free
-    rootDir: study-helper-beta
+    rootDir: api
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
@@ -18,4 +18,4 @@ services:
       - key: GEMINI_API_KEY
         sync: false   # never in the repo
       - key: ALLOWED_ORIGINS
-        sync: false   # the Vercel URL, e.g. https://study-helper.vercel.app
+        sync: false   # the Vercel URL, e.g. https://lacuna-cloud.vercel.app

@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Cert Prep API", lifespan=lifespan)
+app = FastAPI(title="Lacuna API", lifespan=lifespan)
 
 # The browser blocks cross-origin requests by default, so without this the
 # Next.js dev server (localhost:3000) can't call this API (localhost:8000)

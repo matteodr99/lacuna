@@ -1,7 +1,7 @@
 import WeakSpotsClient from "./WeakSpotsClient";
 
 export const metadata = {
-  title: "Weak spots — Study Helper",
+  title: "Weak spots — Lacuna",
 };
 
 export default function WeakSpotsPage() {

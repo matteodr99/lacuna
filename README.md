@@ -1,4 +1,4 @@
-# Study Helper
+# Lacuna
 
 Adaptive practice for cloud certifications (AWS, Azure, GCP), aimed at the gap
 experienced engineers actually have.
@@ -8,7 +8,7 @@ years understands why an explicit deny wins — what they don't remember is that
 a local secondary index can only be created with the table, that S3 removed the
 30-day minimum for transitions to Standard-IA but kept the 30-day *billing*
 minimum, or which BGP community family applies to inbound versus outbound
-routes. Study Helper targets that layer: the granular details stacked on top of
+routes. Lacuna targets that layer: the granular details stacked on top of
 concepts you already know.
 
 Which is also, inconveniently, exactly where language models hallucinate most
@@ -100,8 +100,8 @@ term worth ranking for.
 
 | | |
 |---|---|
-| `study-helper-beta/` | FastAPI + SQLModel + Gemini. Generation, review, serving, analysis. |
-| `study-helper-web/` | Next.js (TypeScript, Tailwind, App Router). Talks to the API over HTTP. |
+| `api/` | FastAPI + SQLModel + Gemini. Generation, review, serving, analysis. |
+| `web/` | Next.js (TypeScript, Tailwind, App Router). Talks to the API over HTTP. |
 | `PROJECT_CONTEXT.md` | The decisions and constraints neither codebase makes obvious. |
 
 ### API
@@ -129,14 +129,14 @@ right, not the paragraphs about the other two distractors.
 
 ## Running it
 
-Backend, from `study-helper-beta/` with a `GEMINI_API_KEY` in `.env`:
+Backend, from `api/` with a `GEMINI_API_KEY` in `.env`:
 
 ```bash
 python -m venv .venv && .venv/bin/pip install fastapi uvicorn sqlmodel google-genai pytest
 .venv/bin/python -m uvicorn api:app --reload --port 8000
 ```
 
-Frontend, from `study-helper-web/` — **Node 20+ and pnpm**, not npm (npm has a
+Frontend, from `web/` — **Node 20+ and pnpm**, not npm (npm has a
 bug with Tailwind's native optional dependencies):
 
 ```bash
@@ -161,8 +161,8 @@ Three services, all sign in with GitHub, none asks for a card:
 
 | Piece | Service | Notes |
 |---|---|---|
-| `study-helper-web/` | [Vercel](https://vercel.com) Hobby | Root directory `study-helper-web`; set `NEXT_PUBLIC_API_URL` to the Render URL. |
-| `study-helper-beta/` | [Render](https://render.com) free web service | `render.yaml` at the repo root describes it; set `DATABASE_URL`, `GEMINI_API_KEY`, `ALLOWED_ORIGINS`. |
+| `web/` | [Vercel](https://vercel.com) Hobby | Root directory `web`; set `NEXT_PUBLIC_API_URL` to the Render URL. |
+| `api/` | [Render](https://render.com) free web service | `render.yaml` at the repo root describes it; set `DATABASE_URL`, `GEMINI_API_KEY`, `ALLOWED_ORIGINS`. |
 | Database | [Neon](https://neon.tech) Postgres free tier | The connection string is `DATABASE_URL`. |
 
 The database is Postgres in production because Render's free disk is wiped on

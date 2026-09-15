@@ -1,5 +1,5 @@
 /**
- * Typed client for the FastAPI backend (study-helper-beta/api.py).
+ * Typed client for the FastAPI backend (api/api.py).
  *
  * The shapes here mirror the Pydantic models on the server. Note that
  * QuestionPublic deliberately has no correct_index / explanation: the

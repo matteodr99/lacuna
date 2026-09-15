@@ -8,7 +8,7 @@ import { ApiError, createUser, type User } from "@/lib/api";
  * remember its id in localStorage. Clearing site data starts a fresh
  * learner — acceptable for a demo, and the thing real auth replaces.
  */
-const STORAGE_KEY = "study-helper.user-id";
+const STORAGE_KEY = "lacuna.user-id";
 
 function readStoredId(): number | null {
   try {
@@ -40,7 +40,7 @@ export function getOrCreateUserId(targetCertification?: string): Promise<number>
   if (pending) return pending;
 
   pending = createUser({
-    email: `guest-${crypto.randomUUID()}@study-helper.local`,
+    email: `guest-${crypto.randomUUID()}@lacuna.local`,
     target_certification: targetCertification,
   })
     .then((user: User) => {
