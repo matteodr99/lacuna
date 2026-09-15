@@ -238,6 +238,32 @@ def test_weak_spots_uses_real_question_type(mock_weak, client):
     assert passed_history[0]["question_type"] == "detail_recall"
 
 
+@patch("api.analyze_weak_spots", return_value=MOCK_WEAK_SPOTS)
+def test_weak_spots_is_computed_once_per_history(mock_weak, client):
+    """The analysis is the only live model call in the user flow and a pure
+    function of the history. Revisiting the page must not spend another
+    request; a new answer must."""
+    user = client.post("/users", json={"email": "cache@example.com"}).json()
+    q1 = _seed_question(client)
+    client.post("/attempts", json={"user_id": user["id"], "question_id": q1["id"], "selected_index": 2})
+
+    first = client.get(f"/users/{user['id']}/weak-spots").json()
+    second = client.get(f"/users/{user['id']}/weak-spots").json()
+    assert first == second
+    assert mock_weak.call_count == 1, "same history was analysed twice"
+
+    with Session(api.engine) as session:
+        q2 = DBQuestion(certification="AWS ANS-C01", domain="Hybrid Connectivity", question_text="another",
+                        options=["a", "b", "c", "d"], correct_index=0, explanation="e", concept_tags=["x"],
+                        question_type=QuestionType.conceptual, difficulty=Difficulty.medium,
+                        review_status=ReviewStatus.approved)
+        session.add(q2); session.commit(); session.refresh(q2)
+    client.post("/attempts", json={"user_id": user["id"], "question_id": q2.id, "selected_index": 1})
+
+    client.get(f"/users/{user['id']}/weak-spots")
+    assert mock_weak.call_count == 2, "new history was served from the stale snapshot"
+
+
 def test_weak_spots_without_history_returns_400(client):
     user = client.post("/users", json={"email": "d@example.com"}).json()
     r = client.get(f"/users/{user['id']}/weak-spots")

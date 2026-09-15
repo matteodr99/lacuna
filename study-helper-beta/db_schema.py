@@ -229,6 +229,22 @@ class QuestionSource(SQLModel, table=True):
     question: Question = Relationship(back_populates="sources")
 
 
+class WeakSpotSnapshot(SQLModel, table=True):
+    """A weak-spot analysis, kept so the same history isn't analysed twice.
+
+    The analysis is a live model call — the only one left in the user flow —
+    and it is a pure function of the user's answer history. Without this,
+    every visit to /weak-spots spent one of twenty daily requests to
+    recompute an unchanged answer, and a page refresh cost as much as
+    generating a question. Keyed on the attempt count: a new answer changes
+    the history, so it changes the key, and the next visit recomputes."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    attempt_count: int
+    analysis: dict = Field(sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+
+
 class StudyPlan(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", index=True)

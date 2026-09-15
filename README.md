@@ -112,7 +112,7 @@ term worth ranking for.
 | `GET /questions/next` | Next approved, unanswered question, steered by weak concepts. Never returns `correct_index` or `explanation`. |
 | `POST /attempts` | Submit an answer; returns correctness, why the picked option is wrong and why the correct one is right. |
 | `POST /questions/{id}/report` | Flag a question as wrong, stale or ambiguous. |
-| `GET /users/{id}/weak-spots` | Pattern analysis over answer history. |
+| `GET /users/{id}/weak-spots` | Pattern analysis over answer history — the one live model call; cached until the history changes. |
 | `POST /users/{id}/study-plan` | A time-budgeted plan to the exam date. |
 
 The model is used at exactly one point: offline question generation. Taking a
@@ -143,7 +143,7 @@ bug with Tailwind's native optional dependencies):
 pnpm install && pnpm dev
 ```
 
-Tests: `.venv/bin/python -m pytest` — 37 passing.
+Tests: `.venv/bin/python -m pytest` — 41 passing.
 
 Filling the bank:
 

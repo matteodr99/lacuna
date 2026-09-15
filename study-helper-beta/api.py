@@ -27,6 +27,7 @@ from db_schema import (
     Attempt,
     OptionExplanation,
     Question,
+    WeakSpotSnapshot,
     QuestionReport,
     ReportReason,
     ReviewStatus,
@@ -301,7 +302,22 @@ def get_weak_spots(user_id: int, session: Session = Depends(get_session)):
     history = get_answer_history_for_user(session, user_id)
     if not history:
         raise HTTPException(status_code=400, detail="No answer history yet — answer some questions first")
-    return analyze_weak_spots(certification=user.target_certification or "", answer_history=history)
+
+    # Same history, same analysis: serve the stored one rather than spend a
+    # model call recomputing it. The attempt count is the history's version.
+    cached = session.exec(
+        select(WeakSpotSnapshot).where(
+            WeakSpotSnapshot.user_id == user_id,
+            WeakSpotSnapshot.attempt_count == len(history),
+        )
+    ).first()
+    if cached is not None:
+        return WeakSpotAnalysis.model_validate(cached.analysis)
+
+    analysis = analyze_weak_spots(certification=user.target_certification or "", answer_history=history)
+    session.add(WeakSpotSnapshot(user_id=user_id, attempt_count=len(history), analysis=analysis.model_dump()))
+    session.commit()
+    return analysis
 
 
 # ---------------------------------------------------------------------

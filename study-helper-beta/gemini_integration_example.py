@@ -27,10 +27,10 @@ from typing import Literal, Optional, TypeVar
 
 T = TypeVar("T", bound=BaseModel)
 
-_client: Optional[genai.Client] = None
+_clients: dict[int, genai.Client] = {}
 
 
-def get_client() -> genai.Client:
+def get_client(timeout_ms: Optional[int] = None) -> genai.Client:
     """Lazy singleton — the API key is only required when a call is
     actually made, not just because this module was imported. Matters
     for testing (importing api.py to run mocked tests shouldn't require
@@ -43,14 +43,22 @@ def get_client() -> genai.Client:
     one failed call into a burst of 5 in the usage dashboard. Once
     quota is healthy again, raising this to 2-3 is reasonable to handle
     genuine transient network blips."""
-    global _client
-    if _client is None:
-        _client = genai.Client(
+    timeout_ms = timeout_ms or REQUEST_TIMEOUT_MS
+    if timeout_ms not in _clients:
+        _clients[timeout_ms] = genai.Client(
             http_options=types.HttpOptions(
-                retry_options=types.HttpRetryOptions(attempts=1)
+                retry_options=types.HttpRetryOptions(attempts=1),
+                # Without a timeout a model under "high demand" can hang the
+                # request for minutes rather than failing, and the fallback
+                # in _interact() never gets its turn — seen on /weak-spots,
+                # the one live call in the user flow, with the page stuck on
+                # "Analysing…". One client per timeout: grounded generation
+                # runs several searches per call and gets the long one,
+                # interactive pages get the short one.
+                timeout=timeout_ms,
             )
         )
-    return _client
+    return _clients[timeout_ms]
 
 # Overridable per run, because rate limits are counted per model: when one
 # model's 20 requests/day are spent, the same seeding run continues on
@@ -64,7 +72,48 @@ def get_client() -> genai.Client:
 # gemini-3.8-flash is the stronger Flash, and gemini-3.1-pro-preview is
 # worth trying for weak-spot analysis, where reasoning matters more than
 # latency.
-MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.7-flash")
+# Default is gemini-2.5-flash on evidence, not preference: across three days
+# of this project gemini-3.7-flash never completed a single call — 429 on
+# grounding, then "high demand" 500s, then requests that hung for minutes —
+# while 2.5-flash completed dozens. 3.7 is the fallback, so it still gets
+# tried when 2.5 is the one having a bad day.
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+REQUEST_TIMEOUT_MS = int(os.environ.get("GEMINI_TIMEOUT_MS", "60000"))
+# For calls a user is waiting on. gemini-2.5-flash takes ~19s for a weak-spot
+# analysis on its own and longer under concurrent load, so 20s — the first
+# value tried — cut off real answers. 45s leaves room; the page says how long
+# to expect, and a cached result makes repeat visits instant anyway.
+INTERACTIVE_TIMEOUT_MS = int(os.environ.get("GEMINI_INTERACTIVE_TIMEOUT_MS", "45000"))
+
+# Tried once when MODEL answers with a server-side error (5xx). Seen live on
+# 2026-09-15: "gemini-3.7-flash is currently experiencing high demand" on the
+# only model call left in the user flow, /weak-spots. That failure is about
+# one model's capacity, not about the request, and it went away by switching
+# model — which a user can't do. A 429 is deliberately not retried here: quota
+# is per model but grounding quota isn't, so a blind retry would usually burn
+# a request to fail the same way.
+FALLBACK_MODEL = os.environ.get("GEMINI_FALLBACK_MODEL", "gemini-3.7-flash")
+
+
+def _interact(timeout_ms: Optional[int] = None, **kwargs):
+    """`interactions.create` on MODEL, retried once on FALLBACK_MODEL when the
+    failure is the model's, not the request's."""
+    from google.genai._gaos.lib.compat_errors import APIStatusError, APITimeoutError
+
+    client = get_client(timeout_ms)
+    try:
+        return client.interactions.create(model=MODEL, **kwargs)
+    except APITimeoutError:
+        # A model under load may not fail at all — it hangs. The client
+        # timeout turns that into this, and it's as much the model's
+        # problem as a 5xx is.
+        if FALLBACK_MODEL == MODEL:
+            raise
+        return client.interactions.create(model=FALLBACK_MODEL, **kwargs)
+    except APIStatusError as exc:
+        if not (500 <= exc.status_code < 600) or FALLBACK_MODEL == MODEL:
+            raise
+        return client.interactions.create(model=FALLBACK_MODEL, **kwargs)
 
 
 def _text_output(interaction) -> str:
@@ -337,8 +386,7 @@ def _parse_structured(interaction, model_cls: type[T]) -> T:
         except (ValidationError, json.JSONDecodeError):
             pass  # fall through to the reformat call
 
-    repair = get_client().interactions.create(
-        model=MODEL,
+    repair = _interact(
         input=(
             "Convert the following answer into JSON matching the required "
             "schema. Do not add, remove, or change any facts — only "
@@ -519,8 +567,7 @@ def generate_question(
         "question_type": question_type,
         "difficulty": difficulty,
     }
-    interaction = get_client().interactions.create(
-        model=MODEL,
+    interaction = _interact(
         input=str(user_input),
         system_instruction=QUESTION_GEN_SYSTEM_INSTRUCTION,
         tools=[{"type": "google_search"}],
@@ -587,8 +634,8 @@ def analyze_weak_spots(certification: str, answer_history: list[dict]) -> WeakSp
     grounded in real data). Fix by storing question_type alongside each
     answer when it's recorded, and passing it through here."""
     user_input = {"certification": certification, "answer_history": answer_history}
-    interaction = get_client().interactions.create(
-        model=MODEL,
+    interaction = _interact(
+        timeout_ms=INTERACTIVE_TIMEOUT_MS,
         input=str(user_input),
         system_instruction=WEAK_SPOT_SYSTEM_INSTRUCTION,
         response_format={
@@ -645,8 +692,7 @@ def explain_wrong_answer(
         "correct_answer": correct_answer,
         "question_type": question_type,
     }
-    interaction = get_client().interactions.create(
-        model=MODEL,
+    interaction = _interact(
         input=str(user_input),
         system_instruction=EXPLANATION_SYSTEM_INSTRUCTION,
         tools=[{"type": "google_search"}],
@@ -712,8 +758,8 @@ def generate_study_plan(
         "priority_concepts": priority_concepts,
         "solid_concepts": solid_concepts,
     }
-    interaction = get_client().interactions.create(
-        model=MODEL,
+    interaction = _interact(
+        timeout_ms=INTERACTIVE_TIMEOUT_MS,
         input=str(user_input),
         system_instruction=STUDY_PLAN_SYSTEM_INSTRUCTION,
         response_format={

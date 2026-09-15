@@ -212,7 +212,7 @@ def test_malformed_shape_costs_one_request(monkeypatch):
     import gemini_integration_example as gie
 
     client = _FakeClient(MALFORMED_RESPONSE)
-    monkeypatch.setattr(gie, "get_client", lambda: client)
+    monkeypatch.setattr(gie, "get_client", lambda *a, **k: client)
 
     question = gie.generate_question(
         certification="AWS Solutions Architect Associate (SAA-C03)",
@@ -236,7 +236,7 @@ def test_unrecoverable_shape_keeps_the_raw_text(monkeypatch):
     import gemini_integration_example as gie
 
     client = _FakeClient('{"question": "Missing everything else"}')
-    monkeypatch.setattr(gie, "get_client", lambda: client)
+    monkeypatch.setattr(gie, "get_client", lambda *a, **k: client)
 
     with pytest.raises(gie.StructuredOutputError) as caught:
         gie.generate_question(
@@ -247,3 +247,87 @@ def test_unrecoverable_shape_keeps_the_raw_text(monkeypatch):
             difficulty="medium",
         )
     assert "Missing everything else" in caught.value.raw
+
+
+# ---------------------------------------------------------------------
+# Model fallback: a 5xx from one model is retried once on another.
+# ---------------------------------------------------------------------
+
+class _FakeStatusError(Exception):
+    """Stands in for the SDK's APIStatusError, which is what _interact
+    checks the status code on."""
+    def __init__(self, status_code):
+        super().__init__(f"status {status_code}")
+        self.status_code = status_code
+
+
+class _FlakyClient:
+    """Fails on the primary model with the given status, succeeds on any other."""
+    def __init__(self, status):
+        self.status = status
+        self.models_tried = []
+        self.interactions = self
+
+    def create(self, model, **kwargs):
+        self.models_tried.append(model)
+        if model == "primary":
+            raise _FakeStatusError(self.status)
+        return _FakeInteraction('{"ok": true}')
+
+
+def _patch_fallback(monkeypatch, gie, status):
+    client = _FlakyClient(status)
+    monkeypatch.setattr(gie, "get_client", lambda *a, **k: client)
+    monkeypatch.setattr(gie, "MODEL", "primary")
+    monkeypatch.setattr(gie, "FALLBACK_MODEL", "fallback")
+    import google.genai._gaos.lib.compat_errors as ce
+    monkeypatch.setattr(ce, "APIStatusError", _FakeStatusError)
+    return client
+
+
+def test_server_error_falls_back_to_the_other_model(monkeypatch):
+    """Seen live: "currently experiencing high demand" on the only live call
+    in the user flow. That's the model's problem, not the request's."""
+    import gemini_integration_example as gie
+    client = _patch_fallback(monkeypatch, gie, 500)
+    result = gie._interact(input="x")
+    assert result.output_text == '{"ok": true}'
+    assert client.models_tried == ["primary", "fallback"]
+
+
+def test_rate_limit_is_not_retried_on_another_model(monkeypatch):
+    """Grounding quota is shared across models, so a blind retry on 429 would
+    usually spend a request to fail the same way. Let it surface."""
+    import gemini_integration_example as gie
+    client = _patch_fallback(monkeypatch, gie, 429)
+    with pytest.raises(_FakeStatusError):
+        gie._interact(input="x")
+    assert client.models_tried == ["primary"]
+
+
+def test_timeout_falls_back_to_the_other_model(monkeypatch):
+    """A model under load may hang rather than fail. The client timeout turns
+    that into a timeout error, which must reach the fallback too."""
+    import gemini_integration_example as gie
+    import google.genai._gaos.lib.compat_errors as ce
+
+    class _FakeTimeout(Exception):
+        pass
+
+    class _HangingClient:
+        def __init__(self):
+            self.models_tried = []
+            self.interactions = self
+        def create(self, model, **kwargs):
+            self.models_tried.append(model)
+            if model == "primary":
+                raise _FakeTimeout("timed out")
+            return _FakeInteraction('{"ok": true}')
+
+    client = _HangingClient()
+    monkeypatch.setattr(gie, "get_client", lambda *a, **k: client)
+    monkeypatch.setattr(gie, "MODEL", "primary")
+    monkeypatch.setattr(gie, "FALLBACK_MODEL", "fallback")
+    monkeypatch.setattr(ce, "APITimeoutError", _FakeTimeout)
+    assert gie._interact(input="x").output_text == '{"ok": true}'
+    assert client.models_tried == ["primary", "fallback"]

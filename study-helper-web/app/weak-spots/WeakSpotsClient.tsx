@@ -69,7 +69,11 @@ export default function WeakSpotsClient() {
       </div>
 
       {state.status === "loading" && (
-        <p className="text-zinc-500 dark:text-zinc-400">Analysing your history…</p>
+        <p className="text-zinc-500 dark:text-zinc-400">
+          Analysing your history… this is a live model call and takes about
+          twenty seconds the first time. Later visits are instant until you
+          answer more questions.
+        </p>
       )}
 
       {state.status === "empty" && (

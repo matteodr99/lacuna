@@ -300,7 +300,7 @@ Read `api.py` for exact request/response shapes. Endpoints:
 
 ## Current state
 
-Backend done, 37 tests passing (`test_api.py`, `test_parsing.py`,
+Backend done, 41 tests passing (`test_api.py`, `test_parsing.py`,
 `test_taxonomy.py`). The question bank holds 35 questions: **34 approved, 1
 rejected** as a duplicate, reviewed on 2026-09-11. 14 came from the Gemini seed
 run of 2026-09-08, 10 were imported by hand on 2026-09-10, 6 more
@@ -341,12 +341,32 @@ that 404 apart from the other one the quiz sees, "bank exhausted", which is a
 normal end state; before, a stale session could read as "you've answered every
 question".
 
-**`/weak-spots` reports quota as the likely cause of failure.** It is now the
-only user-facing endpoint that calls the model live, and the whole page is that
-one call, so there is nothing to degrade to — it says what failed instead of
-showing an empty dashboard. (`POST /attempts` used to have a degradation path
-for a failed live explanation; that call no longer exists, see "AI is used at
-exactly one point".)
+**`/weak-spots` is the one live model call left, and it is treated as such.**
+Verified working for the first time on 2026-09-15 — the analysis was good:
+repeated misses on IAM evaluation flagged as a true gap, a single miss on S3
+bucket policies correctly downgraded to an isolated mistake. Getting there
+surfaced three things, all fixed the same day:
+
+- *The model can hang instead of failing.* "gemini-3.7-flash is currently
+  experiencing high demand" arrived once as a fast 500 and once as a request
+  that sat for minutes. Both are the model's problem, not the request's, so
+  `_interact()` retries once on `FALLBACK_MODEL` after a 5xx or a client
+  timeout. A 429 is deliberately not retried: grounding quota is shared across
+  models, so a blind retry would usually spend a request to fail the same way.
+- *The default model was the wrong one.* Across three days gemini-3.7-flash
+  never completed a single call in this project while 2.5-flash completed
+  dozens, so 2.5 is now the default and 3.7 the fallback. Evidence, not
+  preference.
+- *A page must not cost a request per visit.* The analysis is a pure function
+  of the answer history, so `WeakSpotSnapshot` stores it keyed on the attempt
+  count: revisits are instant and free, a new answer invalidates. Before this,
+  a refresh cost as much as generating a question — and React strict mode in
+  dev fired the effect twice, so two.
+
+Timeouts are per use: 60s for grounded generation, 45s for the two
+interactive calls (weak spots, study plan) — 20s was tried first and cut off
+real 19-second answers. There is nothing to degrade to on that page, so a
+failure says what failed instead of showing an empty dashboard.
 
 **Unhandled 500s set the CORS header themselves.** Starlette generates them
 above `CORSMiddleware`, so the browser saw an opaque "failed to fetch" and the
