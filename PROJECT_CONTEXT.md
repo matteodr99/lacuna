@@ -410,6 +410,17 @@ the pipeline icons. Never for running text (amber on white fails contrast)
 and never on the primary button. Tokens: `amber-500`/`amber-400` for
 strokes, `amber-700`/`amber-300` for text, light/dark respectively.
 
+**The logo is four tiles, one of them missing** — direction A of the
+exploration on 2026-09-15, chosen over a missing-letter wordmark, philological
+brackets and a line-with-a-gap because it is the hero illustration reduced
+to a mark, so the site and the mark say the same thing. The geometry lives
+in three places that can't share code: `components/Logo.tsx` (header,
+Tailwind tokens), `app/icon.svg` (favicon, its own dark-mode media query)
+and the Satori-rendered `app/opengraph-image.tsx` / `app/apple-icon.tsx`.
+Change all of them together. The exploration canvas with the three
+unchosen directions is a Claude Design artifact, linked from the session
+memory rather than the repo.
+
 The layout no longer fixes the content width: `components/Container.tsx`
 is the reading column the app pages opt into, and the landing sets its own
 (wider hero beside an inline-SVG illustration, full-bleed bands). The

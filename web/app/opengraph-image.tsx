@@ -24,14 +24,12 @@ export default function OpenGraphImage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 28, fontWeight: 600, letterSpacing: -0.5 }}>
-          <div
-            style={{
-              width: 26,
-              height: 26,
-              borderRadius: 6,
-              border: "2.5px dashed #fbbf24",
-            }}
-          />
+          <div style={{ display: "flex", flexWrap: "wrap", width: 34, height: 34, gap: 4 }}>
+            <div style={{ width: 15, height: 15, borderRadius: 4, background: "#fafafa" }} />
+            <div style={{ width: 15, height: 15, borderRadius: 4, background: "#fafafa" }} />
+            <div style={{ width: 15, height: 15, borderRadius: 4, background: "#fafafa" }} />
+            <div style={{ width: 15, height: 15, borderRadius: 4, border: "2px dashed #fbbf24" }} />
+          </div>
           Lacuna
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
