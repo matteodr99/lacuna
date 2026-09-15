@@ -3,7 +3,12 @@
   "configurations": [
     {
       "name": "lacuna-web",
-      "url": "http://localhost:3000",
+      "runtimeExecutable": "/Users/matteo/.nvm/versions/node/v20.19.5/bin/node",
+      "runtimeArgs": [
+        "web/node_modules/next/dist/bin/next",
+        "dev",
+        "web"
+      ],
       "port": 3000
     }
   ]

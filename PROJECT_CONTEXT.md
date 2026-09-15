@@ -359,9 +359,8 @@ whichever database the users are actually in.
 
 1. ~~Quiz flow: pick certification → answer → feedback → AI explanation if wrong~~
 2. ~~Weak-spots dashboard~~
-3. A public landing page (part of why Next.js was chosen over Vite — SEO for
-   terms like "AWS SAA practice questions"). The current `/` is a certification
-   picker, not that page.
+3. ~~A public landing page (part of why Next.js was chosen over Vite — SEO for
+   terms like "AWS SAA practice questions")~~ — done 2026-09-15, see below.
 
 ## Frontend decisions
 
@@ -380,6 +379,28 @@ one used during development. `withGuestUser()` now treats that answer as
 that 404 apart from the other one the quiz sees, "bank exhausted", which is a
 normal end state; before, a stale session could read as "you've answered every
 question".
+
+**The landing page at `/` is static, and its sample question is a copy.**
+The page's one interactive element is a real reviewed question answered in
+place (id 30, the S3 Standard-IA one — the product's thesis in a single
+question: one 30-day rule was removed in 2026, the other wasn't). It lives in
+`lib/sample-question.ts` as a verbatim copy rather than being fetched,
+because the Render instance sleeps and the first thing a visitor from a
+search result would see is a cold start. The cost is that the copy can drift
+if the bank's question 30 is ever corrected — the file says so. Its answer
+being public is accepted: it is one of 34, and the sources shown with it
+are the point.
+
+SEO is the landing page only: `sitemap.ts` lists `/`, `robots.ts` disallows
+`/quiz` and `/weak-spots` (per-session state behind a guest id, nothing a
+crawler should index). `lib/site.ts` holds the public origin for canonical,
+Open Graph and the sitemap; `NEXT_PUBLIC_SITE_URL` overrides it when the
+domain changes. The share card is `app/opengraph-image.tsx`, generated from
+the hero's words so it can't drift from the page.
+
+`.claude/launch.json` starts `next dev` through the Node 20 binary and
+Next's real JS entry (`node_modules/next/dist/bin/next`), not the
+`.bin/next` shim — that shim is a shell script and Node refuses it.
 
 **`/weak-spots` is the one live model call left, and it is treated as such.**
 Verified working for the first time on 2026-09-15 — the analysis was good:
