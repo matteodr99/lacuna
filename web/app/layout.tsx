@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site";
 import { Logo } from "@/components/Logo";
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -66,6 +67,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </a>
           </div>
         </footer>
+        {/* Page views and Web Vitals only — no cookies, nothing identifying.
+            Enough to know whether the landing page brings anyone to the
+            quiz. Inert outside Vercel, so the dev server is unaffected. */}
+        <Analytics />
       </body>
     </html>
   );
