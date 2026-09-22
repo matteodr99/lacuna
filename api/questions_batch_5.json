@@ -1,0 +1,557 @@
+[
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "An application needs three values at runtime: a feature flag, the ARN of an SNS topic, and the password for an RDS database that compliance requires to be rotated every 30 days without human involvement. The team wants to avoid paying for anything it doesn't need. What is the appropriate split?",
+    "options": [
+      "Put all three in Parameter Store as `SecureString` parameters and attach a rotation policy, which rotates any parameter on the schedule you set.",
+      "Put the flag and the ARN in Parameter Store (standard tier, no charge) and the database password in Secrets Manager, which provides automatic rotation with native database integrations; Parameter Store has no credential rotation.",
+      "Put all three in Secrets Manager, because Parameter Store cannot encrypt values and any configuration touching a database is a secret.",
+      "Put the flag and ARN in Parameter Store and the password in Parameter Store's advanced tier, whose parameter policies perform the rotation for values larger than 4 KB."
+    ],
+    "correct_index": 1,
+    "explanation": "Parameter Store is a configuration store: it holds plain and encrypted values and its standard tier carries no additional charge, but its credential-rotation capability is *none*. Secrets Manager is purpose-built for credentials and provides automatic rotation with native database integrations, billed per secret per month and per API call. So the cheap, non-secret values belong in Parameter Store and only the password justifies Secrets Manager. Parameter Store does encrypt — `SecureString` values are encrypted with AWS KMS (option 3 is wrong on that point). Advanced-tier *parameter policies* handle expiration and no-change notifications; they do not rotate credentials, and the tier's other differences are size (8 KB instead of 4 KB) and count (100,000 instead of 10,000), not rotation (option 4).",
+    "option_explanations": [
+      "Parameter Store has no credential rotation at all. Its `SecureString` type encrypts a value with KMS but never changes it on a schedule.",
+      "Parameter Store's standard tier is free and fine for configuration; Secrets Manager is the service that rotates credentials automatically, with native database integrations, and is billed per secret.",
+      "Parameter Store does encrypt values, using KMS, with the `SecureString` type. Paying Secrets Manager rates for a feature flag and an ARN buys nothing.",
+      "Advanced-tier parameter policies cover expiration and notification, not credential rotation. The tier raises the value limit to 8 KB and the count to 100,000, and it is charged."
+    ],
+    "concept_tags": ["Secrets Manager", "Parameter Store", "credential rotation"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A mobile app signs users in with Google and then needs to let each signed-in user upload directly to a prefix in an S3 bucket that only they can read. Which Amazon Cognito configuration delivers both halves?",
+    "options": [
+      "A user pool alone: the ID token it issues can be sent as the `Authorization` header on S3 requests, and a bucket policy evaluates the token's claims.",
+      "A user pool as the identity provider, then an identity pool that exchanges the user pool token for temporary AWS credentials from AWS STS, with an IAM role whose policy scopes S3 access to the user's own prefix.",
+      "An identity pool alone: identity pools are a user directory that can authenticate against Google and also issue AWS credentials, so the user pool is redundant.",
+      "A user pool with an attached IAM role: user pools issue temporary AWS credentials directly when a role is configured on the app client."
+    ],
+    "correct_index": 1,
+    "explanation": "The two components do different jobs and are commonly combined. A user pool is a user directory and authentication server: it authenticates the user — including federating to Google — and issues OAuth 2.0 / OIDC tokens. An identity pool is a credentials broker: it takes trusted claims (from a user pool, a SAML or OIDC provider, or a social provider) and exchanges them for temporary AWS credentials from AWS STS, choosing an IAM role by role-based access control, and it can also map claims onto principal tags for attribute-based access control — the mechanism that scopes each user to their own prefix. S3 does not accept a Cognito ID token as an AWS credential (option 1). Identity pools are not a user directory and do not store user profiles (option 3), and user pools do not mint AWS credentials by themselves (option 4).",
+    "option_explanations": [
+      "S3 authenticates AWS credentials (SigV4), not a Cognito ID token. A user pool token has to be exchanged for AWS credentials first.",
+      "The user pool authenticates and issues tokens; the identity pool exchanges those tokens for temporary AWS credentials tied to an IAM role, which is what S3 will accept and what can be scoped per user.",
+      "An identity pool is a credentials broker, not a user directory: it holds no user profiles and provides no sign-up, MFA or hosted sign-in.",
+      "User pools issue OIDC/OAuth tokens. Converting those into AWS credentials is exactly the job of an identity pool."
+    ],
+    "concept_tags": ["Amazon Cognito", "identity federation", "IAM roles"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/cognito/latest/developerguide/what-is-amazon-cognito.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A login endpoint behind AWS WAF is being credential-stuffed. The team adds a rate-based rule that blocks a source IP exceeding 100 requests, leaving the evaluation window at its default. Over what period are those 100 requests counted?",
+    "options": [
+      "Five minutes — the default evaluation window; the setting accepts 60, 120, 300 or 600 seconds.",
+      "One minute — rate-based rules always count per minute, and the evaluation window setting only controls how often AWS WAF re-checks the rate.",
+      "Five minutes, but the window is fixed and cannot be changed; only the request limit is configurable.",
+      "Ten minutes — the default is the longest window, so that short bursts of legitimate traffic are not blocked."
+    ],
+    "correct_index": 0,
+    "explanation": "The evaluation window is how far back AWS WAF looks each time it checks the rate. Valid settings are 60, 120, 300 and 600 seconds, and **300 seconds (5 minutes) is the default** — so a limit of 100 means 100 matching requests in the trailing five minutes, per aggregation instance (by default, per source IP). The window does not control how often AWS WAF checks: it checks frequently, on timing independent of the window setting, which is what option 2 gets backwards. The window is configurable (option 3), and the default is 5 minutes rather than the 10-minute maximum (option 4). Worth remembering alongside it: the lowest allowed limit is 10, and AWS WAF applies rate limiting *near* the limit without guaranteeing an exact match.",
+    "option_explanations": [
+      "300 seconds is the default evaluation window, and the valid choices are 60, 120, 300 and 600 seconds.",
+      "How far back AWS WAF counts (the evaluation window) and how often it checks are separate; checking happens frequently and independently of the window setting.",
+      "The evaluation window is configurable — 60, 120, 300 or 600 seconds — alongside the request limit.",
+      "600 seconds is the maximum, not the default. The default is 300 seconds."
+    ],
+    "concept_tags": ["AWS WAF", "rate-based rules", "application protection"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-rate-based-high-level-settings.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A bucket policy in Account-1 has three statements: one allowing the CloudTrail service principal to write logs, one allowing Account-2 to read a prefix, and one legacy statement with `\"Principal\": \"*\"` and no condition. An administrator enables `RestrictPublicBuckets` on the bucket. Who can still access the bucket?",
+    "options": [
+      "CloudTrail and Account-2: the setting blocks anonymous access only, and the statement granting a named account is not public.",
+      "Only CloudTrail and authorized users within Account-1: the wildcard statement makes the whole policy public, so `RestrictPublicBuckets` also cuts off Account-2's cross-account access.",
+      "Nobody, including CloudTrail: the setting rejects every request that arrives via a policy S3 considers public.",
+      "Everyone as before: the setting rejects *new* public policies but never changes the effect of a policy that already exists."
+    ],
+    "correct_index": 1,
+    "explanation": "S3 evaluates the bucket policy as a whole. The wildcard statement with no limiting condition makes the entire policy public, and `RestrictPublicBuckets` then restricts access to AWS service principals and authorized users within the bucket owner's account — so CloudTrail keeps working, Account-1's own principals keep working, and Account-2 loses access even though the statement granting it is not itself public. Removing the wildcard statement makes the policy non-public again and Account-2's access returns, with the setting still enabled. Service principals are explicitly exempt (option 3). And Block Public Access changes the *effect* of existing policies without modifying them — it is `BlockPublicPolicy` that rejects new public policies at `PutBucketPolicy` time (option 4).",
+    "option_explanations": [
+      "Because one statement is public, the whole policy is public, and the setting then blocks all cross-account access — including the non-public delegation to Account-2.",
+      "A single unconditioned wildcard statement makes the policy public; `RestrictPublicBuckets` then allows only AWS service principals and principals in the bucket owner's account.",
+      "AWS service principals are explicitly still allowed, so CloudTrail continues to deliver logs.",
+      "Block Public Access changes what an existing policy achieves without editing it. Rejecting new public policies is `BlockPublicPolicy`, a different setting."
+    ],
+    "concept_tags": ["S3 Block Public Access", "S3 bucket policies", "cross-account access"],
+    "question_type": "detail_recall",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "Instances in a private subnet must reach Amazon S3 and Amazon Kinesis Data Streams without any route to the internet. Which endpoint types apply?",
+    "options": [
+      "A gateway endpoint for S3, added to the subnet's route table as a prefix-list route at no additional charge; an interface endpoint for Kinesis, which creates an elastic network interface with a private IP in the subnet and is billed hourly plus data processed.",
+      "Interface endpoints for both, because gateway endpoints were deprecated when AWS PrivateLink became available.",
+      "Gateway endpoints for both, since any AWS service can be reached through a route-table entry once the endpoint exists.",
+      "A gateway endpoint for S3 and a NAT gateway for Kinesis, because only S3 and DynamoDB can be reached privately and everything else needs egress to the public endpoint."
+    ],
+    "correct_index": 0,
+    "explanation": "Gateway endpoints exist for exactly two services — Amazon S3 and DynamoDB — do not use AWS PrivateLink, work by adding a route to the service's AWS-managed prefix list in the selected route tables, and carry no additional charge. Every other service that supports private access uses an interface endpoint: a requester-managed elastic network interface with a private IP in each subnet you choose, reached over PrivateLink, and billed per hour and per GB processed. Gateway endpoints are current, not deprecated (option 2), and cannot be created for Kinesis (option 3). Option 4 is wrong on the last step: Kinesis supports an interface endpoint, so no NAT gateway or internet route is needed.",
+    "option_explanations": [
+      "S3 and DynamoDB are the two gateway-endpoint services — route-table based and free. Kinesis, like most services, uses a PrivateLink interface endpoint with an ENI in the subnet.",
+      "Gateway endpoints are current and remain the recommended, no-cost way to reach S3 and DynamoDB from a VPC; they simply do not use PrivateLink.",
+      "Gateway endpoints are available only for S3 and DynamoDB. No route-table entry exists for Kinesis.",
+      "Private access is not limited to S3 and DynamoDB: Kinesis supports an interface endpoint, so a NAT gateway is unnecessary here."
+    ],
+    "concept_tags": ["VPC endpoints", "AWS PrivateLink", "VPC networking"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": [
+      "https://docs.aws.amazon.com/vpc/latest/privatelink/gateway-endpoints.html",
+      "https://docs.aws.amazon.com/vpc/latest/privatelink/concepts.html"
+    ]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A partner-facing API must be protected by AWS WAF, throttled per client with API keys and usage plans, and validate request bodies against a schema before invoking the backend. A team member proposes an API Gateway HTTP API because it costs less. What is the correct assessment?",
+    "options": [
+      "HTTP APIs meet all three requirements; only edge-optimized endpoints and mock integrations are missing from them.",
+      "HTTP APIs support none of the three: AWS WAF integration, API keys with usage plans and per-client throttling, and request validation are REST API features, so a REST API is required.",
+      "HTTP APIs support AWS WAF and request validation but not API keys, so the API keys must be replaced with a Lambda authorizer.",
+      "Either type works, because AWS WAF can be attached to any API Gateway endpoint through the web ACL's resource association, independently of the API type."
+    ],
+    "correct_index": 1,
+    "explanation": "REST APIs support more features than HTTP APIs, which are deliberately minimal so they can be offered at a lower price. All three requirements here are on the REST-only side: AWS WAF integration, API keys with usage plans and per-client rate limiting, and request validation. HTTP APIs also lack caching, resource policies, private endpoints, X-Ray tracing and request body transformation; what they add is a built-in JWT authorizer, automatic deployments and private integrations with AWS Cloud Map. Choosing an HTTP API here would mean rebuilding three managed features by hand, so the cheaper API type is the more expensive choice.",
+    "option_explanations": [
+      "AWS WAF, API keys / usage plans and request validation are all absent from HTTP APIs — the gap is much wider than endpoint types and mock integrations.",
+      "All three requirements are REST-only features. HTTP APIs trade them away for a lower price, so a REST API is the right choice here.",
+      "HTTP APIs support neither AWS WAF nor request validation. A Lambda authorizer would not restore either of them.",
+      "AWS WAF can be associated only with a REST API stage; there is no web ACL association for an HTTP API."
+    ],
+    "concept_tags": ["API Gateway", "AWS WAF", "API throttling"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-vs-rest.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "A small internal service runs on eight EC2 instances, each with its own Elastic IP, and the team does not want a load balancer. They want DNS to hand out addresses of healthy instances only and spread clients across them. Which Route 53 routing policy fits, and what is its limit?",
+    "options": [
+      "Weighted routing with equal weights, which checks health and returns every healthy record in one response.",
+      "Multivalue answer routing, which returns up to eight healthy records selected at random; it improves availability but is not a substitute for a load balancer.",
+      "Simple routing with multiple IP addresses in one record, which Route 53 filters by health check before responding.",
+      "Latency-based routing, which returns the record with the lowest measured latency and silently removes unhealthy endpoints."
+    ],
+    "correct_index": 1,
+    "explanation": "Multivalue answer routing is the policy designed for this: Route 53 responds to DNS queries with up to eight healthy records chosen at random, and can be associated with health checks so unhealthy records are left out. It gives a crude spread across endpoints and improves availability, but it is DNS — it does not check connection counts, does not know about capacity, and the client picks from what it receives, so it does not replace a load balancer. Weighted routing controls proportions but returns a single record per query (option 1). A simple record can hold multiple values, but simple routing cannot be associated with health checks, so unhealthy addresses keep being returned (option 3). Latency-based routing chooses by Region, not by instance, and returns one record (option 4).",
+    "option_explanations": [
+      "Weighted routing returns one record per query, chosen by weight; it does not return the whole healthy set.",
+      "Multivalue answer routing returns up to eight healthy records at random and works with health checks — the right fit here, with the caveat that DNS is not load balancing.",
+      "Simple routing can carry several values, but it cannot use health checks, so failed instances would still be handed out.",
+      "Latency-based routing picks the lowest-latency Region and returns a single record; it is not a way to spread traffic across instances."
+    ],
+    "concept_tags": ["Route 53 routing policies", "Route 53 health checks", "High Availability"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "A Network Load Balancer is enabled in two Availability Zones with two targets in AZ-a and eight in AZ-b. Traffic arrives evenly at both load balancer nodes, and the operations team is surprised that each AZ-a target receives four times the requests of each AZ-b target. What explains this, and what is the equivalent behaviour on an Application Load Balancer?",
+    "options": [
+      "Cross-zone load balancing is disabled by default on a Network Load Balancer, so each node serves only its own AZ's targets; on an Application Load Balancer it is always enabled at the load balancer level, though it can be turned off per target group.",
+      "Cross-zone load balancing is enabled by default on both types; the imbalance must come from the NLB's flow hash algorithm and will even out over time.",
+      "Network Load Balancers cannot do cross-zone load balancing at all; only Application Load Balancers can, and it cannot be turned off there.",
+      "The imbalance means AZ-b's targets are failing health checks; cross-zone load balancing is on by default for every Elastic Load Balancing type."
+    ],
+    "correct_index": 0,
+    "explanation": "With cross-zone load balancing disabled, each load balancer node distributes its share of traffic only to targets in its own Availability Zone — so with a 50/50 split at the nodes, the two AZ-a targets take 25% each and the eight AZ-b targets 6.25% each, exactly the 4× ratio observed. Network Load Balancers and Gateway Load Balancers have cross-zone load balancing **disabled by default** and it can be turned on afterwards; Application Load Balancers have it **always enabled at the load balancer level**, with the option to disable it per target group. For Classic Load Balancers the default depends on how the load balancer was created: off via the API or CLI, on via the console. A flow hash distributes connections, not capacity across zones (option 2), and nothing here points at health checks (option 4).",
+    "option_explanations": [
+      "NLB and GWLB default to cross-zone off, which produces exactly this per-AZ split; ALB always has it on at the load balancer level and allows disabling per target group.",
+      "Cross-zone is off by default on an NLB. The flow hash spreads connections within a node's scope; it cannot reach targets in another AZ when cross-zone is off.",
+      "Network Load Balancers do support cross-zone load balancing — it is simply off by default. On an ALB it can be disabled at the target group level.",
+      "The 25% / 6.25% split is the textbook signature of cross-zone being disabled, not of failing health checks, and the default is not 'on' for every type."
+    ],
+    "concept_tags": ["Elastic Load Balancing", "cross-zone load balancing", "High Availability"],
+    "question_type": "detail_recall",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "An order-fulfilment workflow charges a credit card, then books stock, and can take up to two hours while waiting for a supplier callback. Which AWS Step Functions workflow type is required, and why?",
+    "options": [
+      "Express, because charging a card is a short-lived action and Express workflows scale to far higher volumes.",
+      "Standard: Express workflows run for at most five minutes, and Standard's exactly-once execution model suits non-idempotent actions such as processing payments, while Express is at-least-once.",
+      "Either: both types run up to one year, and the choice only affects pricing.",
+      "Express with a Wait state, because the five-minute limit applies to each state rather than to the whole execution."
+    ],
+    "correct_index": 1,
+    "explanation": "Two things rule out Express here. Express workflows can run for **up to five minutes** — the limit is on the whole execution, not per state (option 4) — and a two-hour wait exceeds it. Express workflows also use an *at-least-once* model, so an execution can run more than once, which makes them suited to idempotent actions; charging a card is the canonical non-idempotent action, and Standard's *exactly-once* model is what protects it. Standard workflows run up to one year and keep execution history retrievable for 90 days. As a bonus, Express workflows do not support the Job-run (`.sync`) or Callback (`.waitForTaskToken`) integration patterns, so the supplier callback would have nowhere to land. Only Standard runs a year (option 3); Standard is priced per state transition, Express by executions, duration and memory.",
+    "option_explanations": [
+      "Express workflows are capped at five minutes and are at-least-once, so an execution could charge the card twice. Volume is not the constraint here.",
+      "Standard runs up to one year and is exactly-once, which is what a payment step needs; Express is five minutes and at-least-once.",
+      "Only Standard workflows run up to one year; Express is limited to five minutes. The difference is semantic as well as commercial.",
+      "The five-minute limit applies to the entire Express execution, not to individual states — and Express does not support the callback pattern the supplier wait would need."
+    ],
+    "concept_tags": ["Step Functions", "workflow orchestration", "idempotency"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/step-functions/latest/dg/choosing-workflow-type.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "A company has 40 VPCs across two Regions plus two data centres connected by Direct Connect, and every VPC must be able to reach every other VPC and both data centres. They currently use VPC peering. What is the architectural problem, and what does Transit Gateway change?",
+    "options": [
+      "VPC peering has no throughput limit but caps a VPC at 25 peering connections; Transit Gateway raises the cap while keeping the same non-transitive routing model.",
+      "VPC peering is non-transitive, so full connectivity needs a mesh of connections that grows quadratically. A transit gateway is a hub that routes between its attachments — VPCs, Direct Connect gateways and VPN — and inter-Region transit gateway peering extends it across Regions.",
+      "VPC peering cannot carry Direct Connect traffic at all, whereas Transit Gateway replaces the Direct Connect gateway entirely.",
+      "Both are equivalent; Transit Gateway is simply the newer name for a VPC peering connection with more than two participants."
+    ],
+    "correct_index": 1,
+    "explanation": "VPC peering is point-to-point and non-transitive: traffic cannot flow through a peered VPC to reach a third, so full connectivity between n VPCs requires n(n−1)/2 connections — 780 for 40 VPCs — plus per-VPC route table entries for each. A transit gateway is a network transit hub: VPCs, a Direct Connect gateway, VPN connections and peering connections to other transit gateways attach to it, each attachment associates with exactly one transit gateway route table, and routes can propagate dynamically (via BGP for VPN and Direct Connect). Inter-Region peering connects transit gateways over the AWS global infrastructure, with traffic encrypted at the physical layer — note that a peering attachment needs a **static** route in the route table, since it does not propagate. Transit Gateway does not replace the Direct Connect gateway, it attaches to one (option 3).",
+    "option_explanations": [
+      "The defining limitation of peering is that it is non-transitive, not a connection count, and Transit Gateway's whole point is that it *is* transitive between attachments.",
+      "Peering's non-transitivity forces a quadratic mesh; a transit gateway centralises routing between VPCs, Direct Connect gateways, VPNs and other transit gateways, including across Regions.",
+      "A Direct Connect gateway attaches to a transit gateway rather than being replaced by it.",
+      "They are different services with different routing models: peering is point-to-point and non-transitive, a transit gateway is a routing hub with its own route tables."
+    ],
+    "concept_tags": ["Transit Gateway", "VPC peering", "hybrid networking"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/vpc/latest/tgw/what-is-transit-gateway.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "A data centre runs a legacy application against iSCSI volumes and cannot tolerate cloud round-trips for reads: the entire dataset must stay on-premises with low-latency access, while backups go to AWS. Which Storage Gateway configuration matches?",
+    "options": [
+      "Volume Gateway with **stored** volumes: the complete dataset stays on your on-premises disks and is backed up asynchronously to AWS as EBS snapshots; volumes range from 1 GiB to 16 TiB, up to 512 TiB per gateway.",
+      "Volume Gateway with **cached** volumes: Amazon S3 is the primary store while frequently accessed data is kept locally, giving low latency for the working set.",
+      "S3 File Gateway, which presents the dataset over NFS or SMB while keeping a full local copy of every file.",
+      "Tape Gateway, which presents a virtual tape library over iSCSI and keeps the primary copy on the local disks."
+    ],
+    "correct_index": 0,
+    "explanation": "The requirement — the *entire* dataset local, AWS used only for backup — is the definition of stored volumes: data written to the volume lives on your on-premises storage hardware and is asynchronously backed up to AWS as EBS snapshots, with volumes from 1 GiB to 16 TiB and up to 32 volumes / 512 TiB per gateway. Cached volumes invert this: S3 is the primary store and only recently read data stays in the local cache, so a read outside the working set goes to AWS (option 2) — right for shrinking on-premises storage, wrong when every read must be local. S3 File Gateway presents files over NFS/SMB with S3 as the backing store, not iSCSI, and keeps a cache rather than a full copy (option 3). Tape Gateway is a virtual tape library for archiving, not a primary volume store (option 4).",
+    "option_explanations": [
+      "Stored volumes keep the primary data on-premises and asynchronously back it up to AWS as EBS snapshots — exactly the stated requirement.",
+      "With cached volumes the primary copy is in Amazon S3 and only the working set is local, so reads outside it cross the network.",
+      "S3 File Gateway is NFS/SMB with S3 as the primary store and a local cache, not iSCSI with a complete local dataset.",
+      "Tape Gateway provides a virtual tape library for archive and backup; it is not a primary block store for a live application."
+    ],
+    "concept_tags": ["Storage Gateway", "hybrid storage", "backup and restore"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/storagegateway/latest/vgw/StorageGatewayConcepts.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "An ECS service on Fargate Spot processes queue messages; each message takes about 45 seconds and must be checkpointed before the task dies. How much warning does a Spot interruption give, how does it arrive, and what container setting matters?",
+    "options": [
+      "A two-minute warning, delivered as an ECS task state change event to EventBridge and as a SIGTERM to the running task; `stopTimeout` (default 30 seconds, up to 120) controls how long the container has before SIGKILL.",
+      "No warning at all — Fargate Spot tasks are terminated immediately, so work must be checkpointed after every message.",
+      "A two-minute warning delivered only through the task metadata endpoint, which the application must poll; `stopTimeout` does not apply to Fargate.",
+      "A five-minute warning, and Fargate automatically replaces the interrupted task with on-demand capacity so no checkpointing is needed."
+    ],
+    "correct_index": 0,
+    "explanation": "When Fargate Spot capacity is reclaimed, a two-minute warning is sent both as an ECS task state change event to Amazon EventBridge (with `stopCode: SpotInterruption`) and as a **SIGTERM** to the running task. The container must handle SIGTERM to do its cleanup; if it does not, it receives SIGKILL after the configured `stopTimeout`, whose default is 30 seconds and which can be set to 120 seconds or less for Fargate. With 45-second messages, raising `stopTimeout` toward 120 seconds gives the task room to finish and checkpoint. Fargate explicitly does **not** replace Spot capacity with on-demand capacity (option 4) — the scheduler retries on Spot until capacity returns.",
+    "option_explanations": [
+      "Two minutes' warning arrives as both an EventBridge task state change event and a SIGTERM; `stopTimeout` (default 30s, max 120s on Fargate) sets the grace period before SIGKILL.",
+      "There is a two-minute warning. Checkpointing per message is still prudent, but the task does get a signal to act on.",
+      "The warning is delivered as a SIGTERM and an EventBridge event, and `stopTimeout` very much applies — it is the lever for a graceful shutdown.",
+      "The warning is two minutes, and Fargate does not substitute on-demand capacity for interrupted Spot tasks; the service retries on Spot."
+    ],
+    "concept_tags": ["Fargate Spot", "Amazon ECS", "graceful shutdown"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-capacity-providers.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A CPU-bound Lambda function configured with 512 MB takes 8 seconds per invocation. An engineer argues that raising memory cannot help because the function is not running out of memory. What is the flaw in that reasoning?",
+    "options": [
+      "There is no flaw: memory and CPU are provisioned independently in Lambda, so only the timeout setting affects a CPU-bound function.",
+      "Lambda allocates CPU power in proportion to configured memory — a function has the equivalent of one vCPU at 1,769 MB — so raising memory raises CPU and can cut the duration of a CPU-bound function.",
+      "Raising memory helps only above 3,008 MB, where Lambda switches the function to a second vCPU; below that, CPU is fixed.",
+      "It is correct for functions under 10 GB; only the 10,240 MB maximum unlocks additional CPU."
+    ],
+    "correct_index": 1,
+    "explanation": "Lambda has one dial. Memory is configurable from 128 MB to 10,240 MB in 1 MB increments, and CPU power is allocated **in proportion to the memory configured**, with one vCPU's worth at 1,769 MB. A CPU-bound function at 512 MB has well under a third of a vCPU, so increasing memory increases CPU and typically reduces duration — often at similar or lower total cost, since Lambda bills on GB-seconds and the duration falls as the memory rises. There is no threshold at which CPU suddenly appears (options 3 and 4); the relationship is continuous. Worth pairing with the other hard limits: a 900-second (15-minute) maximum timeout, and `/tmp` ephemeral storage configurable between 512 MB and 10,240 MB.",
+    "option_explanations": [
+      "Memory and CPU are not independent in Lambda: the memory setting is the only performance dial, and CPU scales with it.",
+      "CPU is allocated in proportion to memory (one vCPU at 1,769 MB), so more memory means more CPU and a shorter run for CPU-bound work.",
+      "There is no step change at 3,008 MB. CPU scales continuously with the memory setting from 128 MB upward.",
+      "CPU does not wait until the 10,240 MB maximum; it grows with memory across the whole range."
+    ],
+    "concept_tags": ["AWS Lambda", "Lambda memory and CPU", "serverless performance"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "An API Gateway REST API invokes a Lambda function that must accept uploads of up to 20 MB and return a processed document of similar size. The deployment package, including dependencies, unzips to 180 MB. Which statement is correct?",
+    "options": [
+      "Both work: the synchronous invocation payload limit is 6 MB for the request and 6 MB for the response, and the unzipped deployment package limit is 250 MB.",
+      "The package is fine at 180 MB (the unzipped limit is 250 MB), but a 20 MB payload exceeds the 6 MB synchronous request and response limit, so the large objects must move through S3 with the function passing presigned URLs or keys.",
+      "The payload is fine because asynchronous invocation allows 200 MB, but the package must be shrunk below 50 MB unzipped.",
+      "Neither works: the unzipped package limit is 50 MB and the payload limit is 1 MB in both directions."
+    ],
+    "correct_index": 1,
+    "explanation": "Two different limits, and only one is breached. A zipped deployment package may be 50 MB when uploaded through the API, SDKs or console (larger via S3), and the contents including layers may be up to **250 MB unzipped** — 180 MB is within that. Invocation payloads are capped at **6 MB each way for synchronous** invocation and 1 MB for asynchronous, so a 20 MB upload cannot travel in the request; the standard pattern is to keep the bytes in S3 and pass a key or presigned URL. The 200 MB figure applies to a *streamed response*, not to asynchronous invocation (option 3), and asynchronous is the smaller limit, not the larger. A container image function, by contrast, may be up to 10 GB — but the payload limit is unchanged.",
+    "option_explanations": [
+      "The package is within limits, but 20 MB exceeds the 6 MB synchronous payload cap in each direction.",
+      "250 MB unzipped accommodates the package; the 6 MB synchronous payload limit does not accommodate 20 MB, so the objects belong in S3.",
+      "200 MB applies to streamed responses, not asynchronous invocation (which is 1 MB), and 50 MB is the *zipped* upload limit, not the unzipped one.",
+      "50 MB is the zipped limit (250 MB unzipped), and the synchronous payload limit is 6 MB, not 1 MB — 1 MB is the asynchronous limit."
+    ],
+    "concept_tags": ["AWS Lambda", "Lambda quotas", "API Gateway"],
+    "question_type": "detail_recall",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A reporting database sits idle overnight and is hammered for three hours each morning. The team moves it to Aurora Serverless v2 with a range of 2–64 ACUs. Which description of the resulting behaviour is accurate?",
+    "options": [
+      "Each ACU is roughly 2 GiB of memory with corresponding CPU and networking; capacity scales in increments as small as 0.5 ACU while connections stay open and transactions continue, with no disruption to in-flight operations.",
+      "Aurora pauses the cluster after inactivity and the first morning connection fails with a timeout while capacity is restored, which is the known trade-off of serverless.",
+      "Scaling happens by replacing the instance with a larger one, so each scale-up drops open connections; applications must implement retry logic.",
+      "ACUs measure storage rather than compute, so a cluster holding several terabytes cannot scale down below the ACUs its data requires."
+    ],
+    "correct_index": 0,
+    "explanation": "An Aurora capacity unit is approximately 2 GiB of memory with corresponding CPU and networking. Aurora Serverless v2 scales each writer and reader within the configured range in increments as small as 0.5 ACU, and — this is the part that distinguishes it from the older v1 — scaling happens while database connections are open, while transactions are in process, and while tables are locked: it does not wait for a quiet point and does not disrupt operations underway (options 2 and 3). Compute and storage are separate, so a cluster can hold many terabytes while CPU and memory scale down to low levels (option 4). Pausing is available but optional: a minimum of 0 ACUs enables automatic pause and resume on recent engine versions; a minimum of 2, as here, keeps the cluster warm.",
+    "option_explanations": [
+      "≈2 GiB of memory per ACU, 0.5-ACU scaling increments, and non-disruptive in-place scaling that keeps connections and transactions alive.",
+      "Auto-pause is opt-in via a minimum of 0 ACUs; with a minimum of 2 the cluster stays ready. Even with auto-pause, resume is a designed behaviour rather than a failed connection.",
+      "Most scaling events keep the writer or reader on the same host, and Aurora manages connections automatically in the rare cases it moves one.",
+      "ACUs measure compute. Storage is separate and unlimited by the capacity range, so a multi-terabyte cluster can still scale compute to the minimum."
+    ],
+    "concept_tags": ["Aurora Serverless", "database scaling", "Aurora capacity units"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-serverless-v2.how-it-works.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A DynamoDB-backed product catalogue is read far more than it is written and needs microsecond read latency. The team adds a DAX cluster, but the application issues all `GetItem` calls with `ConsistentRead=true`. What happens?",
+    "options": [
+      "DAX serves the reads from its item cache in microseconds; the consistency flag only affects how DAX refreshes the cache in the background.",
+      "DAX passes strongly consistent reads straight through to DynamoDB and does not cache the results, so the application sees no benefit until it switches to eventually consistent reads.",
+      "DAX rejects strongly consistent requests with a validation error, because the cluster only accepts eventually consistent operations.",
+      "DAX serves them from cache but marks the response as stale, leaving the application to decide whether to re-read from DynamoDB."
+    ],
+    "correct_index": 1,
+    "explanation": "DAX delivers microsecond response times for **eventually consistent** reads. When a request specifies strongly consistent reads, DAX passes it through to DynamoDB and the result is *not* cached — it is simply returned — so a catalogue reading exclusively with `ConsistentRead=true` gets DynamoDB's millisecond latency plus a hop, and pays for the cluster for nothing. Requests are not rejected (option 3) and nothing is marked stale (option 4). Two related facts worth keeping: writes (`PutItem`, `UpdateItem`, `DeleteItem`, `BatchWriteItem`) are **write-through** — data goes to the table first, then to DAX, and succeeds only if both succeed — and the item cache has a default TTL of 5 minutes. DAX also runs inside a VPC, so it is reached from within the network rather than over a public endpoint.",
+    "option_explanations": [
+      "The consistency flag decides whether DAX can serve the read at all: strongly consistent reads bypass the cache entirely.",
+      "Strongly consistent reads are passed through to DynamoDB and their results are not cached, so DAX adds nothing until the application uses eventually consistent reads.",
+      "DAX accepts the request; it forwards it to DynamoDB rather than erroring.",
+      "DAX does not serve strongly consistent reads from cache at all, so there is no stale response to flag."
+    ],
+    "concept_tags": ["DynamoDB Accelerator", "read consistency", "caching strategies"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.concepts.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A multiplayer game uses UDP, keeps long-lived sessions, and runs on EC2 fleets behind Network Load Balancers in three Regions. Players complain about latency and jitter, and the client firmware has hard-coded IP addresses that are painful to update. Which service fits, and why not CloudFront?",
+    "options": [
+      "CloudFront, because its edge locations terminate connections close to players and it supports UDP through its global network.",
+      "AWS Global Accelerator: it provides two static anycast IPv4 addresses as fixed entry points, routes over the AWS global network to the nearest healthy Regional endpoint, and suits TCP/UDP traffic — whereas CloudFront is an HTTP content delivery network that caches, which does not help a UDP game.",
+      "Route 53 latency-based routing, which achieves the same path optimisation with no additional component and keeps the client IP addresses stable.",
+      "Global Accelerator, but only after migrating the game to TCP, since accelerators forward TCP exclusively."
+    ],
+    "correct_index": 1,
+    "explanation": "Global Accelerator is built for this shape of workload: it gives you two static IPv4 addresses (optionally two IPv6 addresses as well) that you hard-code once in clients and firewalls, routes players to the closest edge by anycast and then over the AWS global network to the nearest Regional endpoint, and re-routes traffic instantly to the next available Region if an endpoint fails its health checks. It explicitly covers non-HTTP protocols including UDP, which is the reason CloudFront does not apply — CloudFront is an HTTP/HTTPS content delivery network whose value is caching, irrelevant to a real-time game (option 1). Route 53 changes which IP the client resolves, does not give stable IPs, and depends on DNS TTLs rather than instant failover (option 3). Global Accelerator does not require TCP (option 4).",
+    "option_explanations": [
+      "CloudFront accelerates and caches HTTP/HTTPS content; it is not a path for UDP game traffic.",
+      "Two static anycast IPs solve the hard-coded-address problem, the AWS global network reduces latency and jitter, and TCP/UDP traffic is supported — none of which CloudFront's HTTP caching model provides.",
+      "Latency-based DNS hands out different addresses and relies on TTLs and client resolver behaviour, so it fixes neither the fixed-IP requirement nor failover speed.",
+      "Global Accelerator handles UDP as well as TCP; migrating the game protocol is unnecessary."
+    ],
+    "concept_tags": ["Global Accelerator", "CloudFront", "latency optimization"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/global-accelerator/latest/dg/introduction-benefits-of-migrating.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "After attaching two VPCs and a Site-to-Site VPN to a transit gateway, a team enables jumbo frames (9001 MTU) on their EC2 instances. VPC-to-VPC transfers speed up, but large packets over the VPN are dropped or fragmented. What is the explanation?",
+    "options": [
+      "A transit gateway supports an MTU of 8500 bytes for VPC, Direct Connect, Connect and peering attachments, but traffic over VPN connections is limited to an MTU of 1500 bytes.",
+      "The transit gateway supports 9001 bytes everywhere; the drops must come from the on-premises router and are unrelated to AWS.",
+      "Jumbo frames are never supported through a transit gateway; the 8500-byte figure applies only to intra-VPC traffic between instances.",
+      "The MTU for every transit gateway attachment is 1500 bytes, so the observed VPC-to-VPC speed-up cannot be attributed to jumbo frames."
+    ],
+    "correct_index": 0,
+    "explanation": "A transit gateway supports an MTU of **8500 bytes** for traffic between VPCs, Direct Connect, Transit Gateway Connect and peering attachments (intra-Region, inter-Region and Cloud WAN), while traffic over **VPN connections is limited to 1500 bytes**. Instances set to 9001 will therefore see their large packets pass between VPCs at up to 8500 and be fragmented or dropped on the VPN path — the classic symptom when `Don't Fragment` is set and Path MTU Discovery is not working end to end. Note that even the 8500 figure is below the 9001 jumbo frame size, so an instance MTU of 9001 is not carried intact through the transit gateway either; sizing the path to 8500 is the fix for the VPC side, and 1500 for the VPN side.",
+    "option_explanations": [
+      "8500 bytes for VPC, Direct Connect, Connect and peering attachments; 1500 bytes over VPN — the mismatch is what breaks the large packets.",
+      "The transit gateway's own VPN attachment caps at 1500 bytes, so this is an AWS-side limit, not only an on-premises one.",
+      "Large frames up to 8500 bytes are supported through a transit gateway for non-VPN attachments; the limit is not confined to intra-VPC traffic.",
+      "1500 bytes applies to VPN traffic only; other attachment types carry up to 8500 bytes, which is why VPC-to-VPC improved."
+    ],
+    "concept_tags": ["Transit Gateway", "MTU and jumbo frames", "hybrid networking"],
+    "question_type": "detail_recall",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/vpc/latest/tgw/what-is-transit-gateway.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "An EFS file system holds 30 TB of project data. Most files are untouched after the first month, but when an old file is opened the team wants it to stay cheap rather than move back to Standard. Which lifecycle configuration matches, and what are the defaults?",
+    "options": [
+      "By default files move to Infrequent Access after 30 days without access and to Archive after 90; leave 'Transition into Standard' at its default, which is not to move files back when they are accessed.",
+      "By default nothing transitions; all three policies must be set explicitly, and 'Transition into Standard' defaults to 'On first access' once enabled.",
+      "Files move to Infrequent Access after 30 days, but Archive requires One Zone storage and is unavailable on a Regional file system.",
+      "By default files move to Infrequent Access after 30 days and back to Standard on first access, so the requirement needs 'Transition into Standard' changed to 'None'."
+    ],
+    "correct_index": 0,
+    "explanation": "EFS lifecycle management has three policies. **Transition into IA** defaults to 30 days without access in Standard; **Transition into Archive** defaults to 90 days; and **Transition into Standard** defaults to *not* moving files back — accessed files remain in IA or Archive. That default is exactly what this team wants, so the answer is to leave it alone. The 'On first access' setting exists for the opposite case: performance-sensitive workloads with many small files, which want an accessed file promoted back to Standard. Two related details: file metadata is always stored in Standard regardless of the policies, and all writes land in Standard first and become eligible to transition again after 24 hours.",
+    "option_explanations": [
+      "30 days to IA and 90 days to Archive are the defaults, and the default for Transition into Standard is to leave accessed files where they are.",
+      "The IA and Archive transitions have defaults (30 and 90 days) rather than being off, and the default for Transition into Standard is 'none', not 'on first access'.",
+      "Archive is a lifecycle destination governed by the Transition into Archive policy; it is not gated on One Zone storage.",
+      "The default is the opposite: files are *not* moved back to Standard when accessed. 'On first access' is the setting you opt into for latency-sensitive workloads."
+    ],
+    "concept_tags": ["Amazon EFS", "EFS lifecycle management", "storage cost optimization"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/efs/latest/ug/lifecycle-management-efs.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "EC2 instances in private subnets write 60 TB per month to an S3 bucket in the same Region, routed through a NAT gateway. A cost review flags the NAT gateway's data processing charge. What is the fix, and what does it cost?",
+    "options": [
+      "Add an S3 gateway endpoint and a route to it in the private subnets' route tables: S3 traffic then bypasses the NAT gateway, and gateway endpoints carry no additional charge.",
+      "Add an S3 interface endpoint, which removes the NAT charge and is itself free for S3 because S3 traffic stays on the AWS network.",
+      "Move the instances to public subnets with public IPs, which removes the NAT gateway and any data processing charge.",
+      "Nothing can be done: traffic to S3 from a private subnet must traverse a NAT gateway, and the processing charge is unavoidable at that volume."
+    ],
+    "correct_index": 0,
+    "explanation": "A gateway endpoint for S3 adds a route to the service's AWS-managed prefix list in the route tables you select, so traffic from those subnets to S3 in the same Region goes through the endpoint instead of the NAT gateway — and there is **no additional charge** for gateway endpoints, removing both the NAT data processing fee and the NAT hourly cost if nothing else needs it. An interface endpoint would also work but is billed per hour and per GB processed, so it is not free (option 2). Putting instances in public subnets with public IPs removes NAT charges but exposes the instances and changes the security posture, which is not a cost fix worth making (option 3). Two caveats worth knowing: the endpoint route only applies to the Region's own S3 prefix list — S3 in a *different* Region still goes out through the internet gateway — and security groups must allow egress to the prefix list.",
+    "option_explanations": [
+      "Gateway endpoints are free, route-table based and available for S3, so the 60 TB stops being processed by the NAT gateway.",
+      "Interface endpoints work but are charged hourly and per GB processed; for S3 in the same Region the gateway endpoint is the free option.",
+      "This trades a cost problem for an exposure problem and abandons the private-subnet design.",
+      "A gateway endpoint is exactly the supported way to reach S3 from a private subnet without a NAT device."
+    ],
+    "concept_tags": ["VPC endpoints", "NAT Gateway vs VPC endpoints", "data transfer cost"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/vpc/latest/privatelink/gateway-endpoints.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "A media company must move 500 TB from an on-premises NFS array to Amazon S3. The site has a 1 Gbps internet link that is also used by the business, and the migration must finish within two weeks. Which approach fits, and what does DataSync contribute?",
+    "options": [
+      "AWS DataSync alone over the existing link: its purpose-built protocol and parallel, multi-threaded architecture remove the bandwidth constraint.",
+      "An offline transfer with an AWS Snow device for the 500 TB bulk, then AWS DataSync for the incremental changes and cutover — DataSync handles NFS/SMB/HDFS/object sources with automatic encryption and data integrity validation, but it still transfers over the network.",
+      "AWS DataSync writing directly to S3 Glacier Deep Archive, which avoids the bandwidth problem because archive uploads are not rate-limited.",
+      "S3 Transfer Acceleration from the on-premises servers, which routes uploads through edge locations and multiplies the available bandwidth."
+    ],
+    "correct_index": 1,
+    "explanation": "Do the arithmetic first: a fully saturated 1 Gbps link moves roughly 10 TB per day at best, so 500 TB needs about 50 days — and the link is shared. No software can exceed the physical link, which is what rules out DataSync alone (option 1), a Glacier destination (option 3 — the destination class does not change transfer speed) and Transfer Acceleration (option 4 — it optimises the path to S3 but cannot exceed the local uplink). The bulk therefore goes offline on a Snow device. DataSync is still the right tool for the second half: it transfers between on-premises NFS, SMB, HDFS and object storage and AWS storage services, over the network, with automatic encryption and data integrity validation, which is what you want for catching up the deltas accumulated while the device is in transit and for the final cutover.",
+    "option_explanations": [
+      "DataSync accelerates transfers but cannot exceed the physical link: 500 TB over a shared 1 Gbps connection takes roughly 50 days.",
+      "Snow moves the bulk offline; DataSync, which works over the network with encryption and integrity validation, syncs the changes and handles cutover.",
+      "The destination storage class has no effect on how fast bytes cross the link.",
+      "Transfer Acceleration improves the path from the edge to S3; the constraint here is the 1 Gbps uplink itself."
+    ],
+    "concept_tags": ["AWS DataSync", "data migration", "hybrid storage"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/datasync/latest/userguide/what-is-datasync.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "A pipeline runs 20 million short workflows a month, each about 12 seconds long with roughly 15 steps, all idempotent. It currently uses Step Functions Standard workflows. Why is Express likely cheaper, and what is the billing difference?",
+    "options": [
+      "Standard workflows are billed per state transition — here 300 million a month — while Express workflows are billed by the number of executions, their duration and the memory consumed, which suits high-volume short workflows.",
+      "Both types are billed per state transition; Express is cheaper only because it charges a lower rate per transition.",
+      "Express workflows are free below five minutes of execution time; only workflows exceeding five minutes are billed at all.",
+      "Standard workflows are billed per hour of state machine existence, so consolidating the 20 million executions into fewer state machines is the real saving."
+    ],
+    "correct_index": 0,
+    "explanation": "The two types have genuinely different pricing models. Standard is priced by **state transitions**, counted each time a step completes — 20 million executions × 15 steps is 300 million transitions a month. Express is priced by the **number of executions, their total duration and the memory consumed**, which is typically far cheaper for high-volume, short-lived workloads; that is precisely the workload Express was designed for. The fit also depends on semantics, which happen to line up here: Express is at-least-once, suited to idempotent actions, and capped at five minutes — both satisfied by 12-second idempotent workflows. Express is not free (option 3), the models are not the same (option 2), and Step Functions does not charge for a state machine's existence (option 4).",
+    "option_explanations": [
+      "Standard bills per state transition (300 million a month here); Express bills per execution, duration and memory, which is the cheaper shape for high-volume short runs.",
+      "Only Standard is priced by state transitions. Express uses an entirely different metric.",
+      "Express executions are billed on count, duration and memory. The five-minute figure is the maximum duration, not a free allowance.",
+      "There is no hourly charge for the existence of a state machine; the cost follows executions and transitions."
+    ],
+    "concept_tags": ["Step Functions", "workflow orchestration", "Step Functions pricing"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/step-functions/latest/dg/choosing-workflow-type.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "Twelve Aurora PostgreSQL development clusters are used during working hours only and sit idle overnight and at weekends, but the teams want them reachable at any time without a restore step. Which Aurora Serverless configuration addresses the idle cost?",
+    "options": [
+      "Set the minimum capacity to 0 ACUs on a supported engine version, which lets the writer and readers scale all the way down and automatically pause when there is no workload, resuming on demand.",
+      "Set the minimum capacity to 0.5 ACUs, which is the lowest value Aurora Serverless accepts and the closest available to no cost when idle.",
+      "Stop each cluster with the stop/start feature every evening, which is the only way an Aurora cluster stops consuming compute.",
+      "Move the clusters to Aurora Global Database with the secondary in a cheaper Region, since secondary clusters are billed at a reduced rate while idle."
+    ],
+    "correct_index": 0,
+    "explanation": "Recent Aurora MySQL and PostgreSQL versions let Aurora Serverless writers and readers scale all the way to **0 ACUs** — automatic pause and resume — which is enabled simply by specifying a minimum capacity of zero, with a configurable wait before pausing. That is the right answer for clusters that are idle for long stretches but must stay reachable without an operator step. 0.5 ACUs was the old floor and still applies on older versions (option 2), but it is no longer the lowest value available. The stop/start feature does exist and suits dev and test systems, but it is not the *only* way and it requires someone to start the cluster again (option 3). Aurora Global Database adds cost and complexity and has nothing to do with idle development clusters (option 4).",
+    "option_explanations": [
+      "A minimum of 0 ACUs enables automatic pause and resume on supported versions, so an idle cluster consumes no compute yet comes back on demand.",
+      "0.5 ACUs is the floor on older versions; current ones support 0 ACUs with auto-pause, which is strictly cheaper when idle.",
+      "Stopping and starting works, but it is a manual (or scheduled) action and not the only option — auto-pause achieves the same without an operator.",
+      "A global database is a disaster-recovery and low-latency-reads feature that adds a second cluster's cost; it does not reduce idle spend."
+    ],
+    "concept_tags": ["Aurora Serverless", "Aurora auto-pause"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-serverless-v2.how-it-works.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "A platform team stores about 9,000 configuration values in Parameter Store, all under 4 KB, and is asked to keep the configuration bill at zero. A new requirement arrives: share a handful of parameters with another AWS account. What is the cost consequence?",
+    "options": [
+      "None: parameter sharing across accounts is a standard-tier feature, and the standard tier carries no additional charge at any parameter count.",
+      "The shared parameters must be advanced-tier parameters, which are charged; standard-tier parameters cannot be shared across accounts. The rest can stay standard, and standard and advanced parameters can coexist in the same account and Region.",
+      "All 9,000 parameters must be converted to the advanced tier, because tiers are set per account and Region rather than per parameter.",
+      "The account must stay under the 10,000-parameter standard-tier limit, but sharing is free; the only cost trigger is exceeding 4 KB per value."
+    ],
+    "correct_index": 1,
+    "explanation": "Shareability across AWS accounts is an **advanced-tier** capability: standard parameters cannot be shared. The tier is configured per parameter, not per account, so only the handful being shared need to be advanced — you can mix them freely, up to 100,000 advanced and 10,000 standard in the same account and Region (option 3 is wrong about the scope of the setting). Advanced parameters are charged, so the bill moves off zero for those few (options 1 and 4). The other advanced-tier differences worth remembering: an 8 KB maximum value instead of 4 KB, and support for parameter policies. One direction-of-travel detail: a standard parameter can be upgraded to advanced, but an advanced parameter cannot be downgraded.",
+    "option_explanations": [
+      "Sharing across accounts is not available to standard parameters, so it cannot be done at zero cost.",
+      "Only the shared parameters need the advanced tier and its charge; tiers are per parameter, and the two kinds coexist in one account and Region.",
+      "The tier is chosen per parameter, so there is no need to convert all 9,000.",
+      "Sharing is not free — it requires the advanced tier. Exceeding 4 KB is one reason to go advanced, not the only one."
+    ],
+    "concept_tags": ["Parameter Store", "parameter tiers"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html"]
+  }
+]
