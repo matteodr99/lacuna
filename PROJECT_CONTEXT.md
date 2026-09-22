@@ -316,37 +316,46 @@ Read `api.py` for exact request/response shapes. Endpoints:
 ## Current state
 
 Backend done, 41 tests passing (`test_api.py`, `test_parsing.py`,
-`test_taxonomy.py`). The question bank holds 83 questions: **82 approved, 1
-rejected** as a duplicate. 14 came from the Gemini seed run of 2026-09-08, 10
-were imported by hand on 2026-09-10, 6 (`questions_batch_2.json`) cover the six
-jobs the seed run never produced, 5 (`questions_batch_3.json`) cover ground the
-SEED_PLAN never had, and 48 arrived in two hand-written batches on 2026-09-22
-(`questions_batch_4.json` / `apply_review_2026-09-22.py`,
-`questions_batch_5.json` / `apply_review_2026-09-22b.py`). Coverage now tracks
-the exam weights closely — 24 / 20 / 20 / 18 across Secure / Resilient /
-High-Performing / Cost-Optimized, i.e. 29 / 24 / 24 / 22 % against exam weights
-of 30 / 26 / 24 / 20 %.
+`test_taxonomy.py`). **The bank reached its 100-question target on 2026-09-22**:
+101 questions, 100 approved and 1 rejected as a duplicate. 14 came from the
+Gemini seed run of 2026-09-08, 10 were imported by hand on 2026-09-10, 11 more
+in `questions_batch_2.json` / `_3.json`, and 66 in three hand-written batches
+on 2026-09-22 (`questions_batch_4.json` … `_6.json`, each with its own
+`apply_review_2026-09-22*.py`).
+
+Coverage now matches the exam's published domain weighting **exactly** —
+30 / 26 / 24 / 20 across Secure / Resilient / High-Performing /
+Cost-Optimized — and is 58 % detail-recall, 21 % hard. Keep both ratios when
+the bank grows: the weighting is what makes a session representative, and the
+detail-recall share is the product.
 
 **Write batches docs-first.** Fetch and read each source page *before*
 drafting its question, rather than writing from memory and checking
-afterwards. The order is what makes the batches worth anything: it is how the
-bank got questions pivoting on the S3 object ceiling being 50 TB (not 5), NAT
+afterwards. That order is the whole value of the batches: it is how the bank
+got questions pivoting on the S3 object ceiling being 50 TB (not 5), NAT
 gateways having a regional availability mode, Compute Savings Plans at "up to
 66%", Lambda giving one vCPU at 1,769 MB, Aurora Serverless scaling to 0 ACUs
 (0.5 was the floor), cross-zone load balancing being *always on at the load
-balancer level* for an ALB rather than merely "on by default", and a transit
-gateway carrying 8500 bytes except over VPN. Every one of those is a place
-where the material candidates revise from is stale — which is the product's
-whole claim.
+balancer level* for an ALB, a transit gateway carrying 8500 bytes except over
+VPN, and S3 Replication Time Control being documented as 99.9 % within 15
+minutes (not the 99.99 % it is usually quoted as). Every one of those is a
+place where the material candidates revise from is stale — which is the
+product's whole claim, and it does not hold if the questions are written from
+the same stale memory.
 
-Batch 5 filled the service gaps the bank had: Lambda, API Gateway, EFS,
-Route 53 policies, ELB, Cognito, WAF, VPC endpoints, Transit Gateway, Step
-Functions, DAX, Aurora Serverless, Global Accelerator, Storage Gateway,
-DataSync, Fargate Spot, Parameter Store, S3 Block Public Access.
+Near-neighbour questions are allowed when the *pivot* differs, not the
+service: the bank deliberately holds two AWS Backup questions, two CloudWatch,
+two Athena and two Parameter Store, each pair asking about a different fact.
+What is not allowed is a general tag beside a specific one — three batches in
+a row needed a tag fix before approval (`cost optimization` next to
+`storage cost optimization`, `monitoring` next to `security monitoring`,
+`cross-Region replication` folded onto the S3 tag by `canonical_tags()`).
+Check `concept_tags` against the approved bank before running the review
+script; it is the one recurring defect in hand-written batches.
 
-Remaining toward 100: ~18 questions. Untouched services worth mining next —
-SNS/EventBridge, RDS Proxy, ElastiCache topology, Direct Connect, FSx,
-Redshift/Athena, CloudWatch alarms, Compute Optimizer.
+Services still untouched, if the bank ever grows past 100: SNS and SQS
+FIFO specifics, Kinesis Data Firehose, Redshift, Compute Optimizer,
+IAM Identity Center, Network Firewall, Outposts, Local Zones.
 
 The weak-spots page has only been exercised on its failure path — its happy
 path needs a `GEMINI_API_KEY` and one live call.

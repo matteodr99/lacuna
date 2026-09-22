@@ -1,0 +1,420 @@
+[
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A security team has three separate asks: find out whether any S3 bucket holds customer PII, learn whether EC2 instances are running packages with published CVEs, and be alerted if an IAM credential starts behaving as though it were stolen. Which services map to which ask?",
+    "options": [
+      "Macie for the PII discovery, Inspector for the CVE scanning, GuardDuty for the credential-abuse detection.",
+      "GuardDuty for all three, since it ingests CloudTrail, VPC flow logs and DNS logs and can therefore see data, packages and behaviour.",
+      "Inspector for the PII discovery and the CVE scanning, GuardDuty for the credentials, with Macie reserved for network exposure findings.",
+      "Macie for the PII discovery, GuardDuty for the CVE scanning via Malware Protection, Inspector for the credential-abuse detection."
+    ],
+    "correct_index": 0,
+    "explanation": "The three services answer three different questions. **Macie** is a data security service that discovers sensitive data in Amazon S3 using machine learning and pattern matching, detecting PII, financial information and credentials data, and also evaluates buckets for public access. **Inspector** is a vulnerability management service that continually scans EC2 instances, container images in ECR and Lambda functions for software vulnerabilities (CVEs) and unintended network exposure, rescanning automatically when a new CVE is published. **GuardDuty** is a threat detection service that analyses logs and uses threat intelligence and machine learning to spot suspicious activity such as compromised and exfiltrated credentials. GuardDuty reads logs, so it cannot enumerate installed packages or read object contents (option 2); Inspector does not inspect data (option 3); GuardDuty's Malware Protection scans for malware, not for CVEs in installed packages (option 4).",
+    "option_explanations": [
+      "Macie discovers sensitive data in S3, Inspector scans for CVEs and network exposure, GuardDuty detects threat behaviour such as credential compromise — one service per question.",
+      "GuardDuty analyses logs and events. It cannot enumerate installed packages or inspect the contents of S3 objects for PII.",
+      "Inspector does not perform sensitive-data discovery; that is Macie. Macie is not a network-exposure tool.",
+      "Malware Protection scans EBS volumes and S3 objects for malware, which is different from CVE scanning; and Inspector does not analyse credential behaviour."
+    ],
+    "concept_tags": ["Amazon GuardDuty", "Amazon Inspector", "Amazon Macie", "threat detection"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": [
+      "https://docs.aws.amazon.com/guardduty/latest/ug/what-is-guardduty.html",
+      "https://docs.aws.amazon.com/inspector/latest/user/what-is-inspector.html",
+      "https://docs.aws.amazon.com/macie/latest/user/what-is-macie.html"
+    ]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A team is told to enable GuardDuty across the organization but is worried about the effort: they assume they must first turn on VPC Flow Logs and a CloudTrail trail in every account, and deploy an agent on every instance. What is actually required for GuardDuty's foundational threat detection?",
+    "options": [
+      "Nothing beyond enabling GuardDuty: it automatically ingests the foundational data sources — CloudTrail management events, VPC flow logs and DNS logs — without you enabling or paying for those log destinations separately.",
+      "A CloudTrail trail and VPC Flow Logs must be enabled and delivered to S3 first; GuardDuty reads them from the bucket you designate.",
+      "An agent is required on every EC2 instance for any GuardDuty finding, because all detection is host-based.",
+      "GuardDuty only analyses data sources you explicitly enable in each protection plan; there are no foundational sources."
+    ],
+    "correct_index": 0,
+    "explanation": "When you enable GuardDuty in an account it automatically starts ingesting its foundational data sources — AWS CloudTrail management events, VPC flow logs from EC2 instances, and DNS logs — and you do not need to enable anything else for GuardDuty to begin analysing them. That is the operational point of the service: no log plumbing and no agent for the foundational detections. Agents (Runtime Monitoring) apply only to the optional protection plan that inspects operating-system-level events, so option 3 over-generalises. Protection plans do exist — S3 Protection, EKS Protection, RDS Protection, Lambda Protection and others — but they *add* to the foundational sources rather than replacing them (option 4). And GuardDuty's own ingestion of these sources is independent of whether you separately store those logs (option 2).",
+    "option_explanations": [
+      "Enabling GuardDuty is sufficient for foundational detection: CloudTrail management events, VPC flow logs and DNS logs are ingested automatically.",
+      "GuardDuty ingests these sources directly; it does not depend on you configuring a trail or flow logs into a bucket for it to read.",
+      "Agent-based inspection belongs to the optional Runtime Monitoring protection plan, not to foundational detection.",
+      "Foundational data sources are ingested automatically; protection plans extend coverage to things like S3 data events, EKS audit logs and RDS login activity."
+    ],
+    "concept_tags": ["Amazon GuardDuty", "threat detection", "security monitoring"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/guardduty/latest/ug/what-is-guardduty.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "After an incident, an auditor asks two questions: \"which security group rules were open on 3 March?\" and \"who called `AuthorizeSecurityGroupIngress` that day?\". Which service answers each?",
+    "options": [
+      "AWS Config answers both, because its configuration items record the API caller alongside each change.",
+      "AWS Config answers the first — it records the configuration of resources over time, so you can view the port rules that were open at a specific time — and AWS CloudTrail answers the second, since it records the API calls made in the account.",
+      "AWS CloudTrail answers both, because every configuration change originates from an API call and the trail therefore contains the resulting state.",
+      "Neither: VPC Flow Logs are the only record of security group state, and IAM Access Advisor is the record of who made changes."
+    ],
+    "correct_index": 1,
+    "explanation": "The two services are complementary and the split is exactly this. AWS Config records the configuration of your AWS resources and how it changed over time, which is why the documentation gives \"view the configuration of your EC2 security groups, including the port rules that were open at a specific time\" as a use case — it answers *what did this look like then*. CloudTrail records the API activity in the account and answers *who did what, when*. Config items describe state rather than identifying the caller (option 1), and a trail of API calls is not a queryable record of resulting resource state (option 3). Option 4 misattributes both: flow logs record traffic, not rules, and Access Advisor shows service usage by a principal. Config also evaluates resources against rules and flags non-compliant ones, which is the other half of why it exists.",
+    "option_explanations": [
+      "Config records state over time but is not the record of which principal made the call; that is CloudTrail's job.",
+      "Config gives historical resource configuration (the open port rules on that date); CloudTrail gives the API call and its caller.",
+      "CloudTrail records the calls, not a queryable history of resulting resource configuration.",
+      "Flow logs record traffic rather than security group rules, and Access Advisor reports service usage, not change history."
+    ],
+    "concept_tags": ["AWS Config", "AWS CloudTrail", "auditing and compliance"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/config/latest/developerguide/WhatIsConfig.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "An application encrypts data client-side in `eu-west-1` and must be able to decrypt it in `us-east-1` after a Regional failover, without re-encrypting or making a cross-Region call to AWS KMS. The existing key is a single-Region symmetric KMS key. What is required?",
+    "options": [
+      "Enable the multi-Region property on the existing key and replicate it to `us-east-1`; the key ID and key material carry over and the key policy replicates with them.",
+      "Create a new multi-Region primary key and re-encrypt the data under it, because a single-Region key cannot be converted to a multi-Region key; the replica shares key ID and key material, but key policy, grants, aliases and tags are independent and must be set per Region.",
+      "No change is needed: KMS keys are global, and any Region's endpoint can decrypt ciphertext produced under the same key ARN.",
+      "Copy the key material out of KMS and import it into a new key in `us-east-1`, which is the only supported way to use the same material in two Regions."
+    ],
+    "correct_index": 1,
+    "explanation": "Related multi-Region keys share the same key ID and key material, so ciphertext encrypted in one Region can be decrypted by the related key in another without re-encrypting or calling across Regions — but you **cannot convert an existing single-Region key** to a multi-Region key (or the reverse), by design, so moving an existing workload means creating new multi-Region keys and re-encrypting. Replication is also not automatic: you create a primary and replicate it into Regions you select within the same AWS partition. And only some properties are shared — key ID, key material, key spec, key usage and rotation settings — while key policy, grants, aliases, tags and enabled/disabled state are **independent** per key and are not synchronised, which is the part option 1 gets wrong. KMS keys are not global (option 3), and key material never leaves KMS unencrypted (option 4).",
+    "option_explanations": [
+      "The multi-Region property is set at creation and cannot be turned on later; and key policies, grants and aliases are independent properties that do not replicate.",
+      "Single-Region keys cannot be converted, so new multi-Region keys plus re-encryption are required; the replica shares key ID and material but has its own policy, grants, aliases and tags.",
+      "KMS keys are Regional. Multi-Region keys are explicitly described as not global — you replicate a primary into Regions you choose.",
+      "AWS KMS securely transports key material between Regions internally when you replicate; you never export it, and import is for your own external material."
+    ],
+    "concept_tags": ["KMS multi-Region keys", "encryption at rest", "disaster recovery"],
+    "question_type": "detail_recall",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/kms/latest/developerguide/multi-region-keys-overview.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A company already runs AWS WAF on its CloudFront distributions and is considering an AWS Shield Advanced subscription. Which statement about what the subscription covers is correct?",
+    "options": [
+      "Shield Advanced replaces AWS WAF, so the existing web ACLs can be deleted and their rules re-created as Shield rules.",
+      "The Shield Advanced subscription covers the standard AWS WAF costs for the resources you protect with it — the per-web-ACL charge, the per-rule charge and the base per-million-request charge — but not non-standard AWS WAF costs such as Bot Control or the CAPTCHA action, and not AWS WAF on unprotected resources.",
+      "Shield Advanced covers all AWS WAF costs in the account, including Bot Control and CAPTCHA, for every resource whether or not it is protected.",
+      "Shield Advanced is free for resources already behind AWS WAF; the subscription charge applies only to resources without a web ACL."
+    ],
+    "correct_index": 1,
+    "explanation": "Shield Advanced is a paid subscription that adds expanded DDoS protection, and part of its value is that it covers the **standard** AWS WAF costs for the resources you protect with it: the cost per web ACL, the cost per rule, and the base price per million requests for web request inspection. It does not cover AWS WAF for resources you have not protected with Shield Advanced, and it does not cover non-standard AWS WAF costs — Bot Control, the CAPTCHA rule action, web ACLs above 1,500 WCUs, and inspecting the request body beyond the default size are all billed separately. The two services work together rather than one replacing the other (option 1); note also that enabling Shield Advanced's automatic application-layer DDoS mitigation adds a rule group consuming 150 WCUs against your web ACL's capacity.",
+    "option_explanations": [
+      "Shield Advanced works with AWS WAF, not instead of it — the automatic mitigation feature even adds a rule group to your web ACL.",
+      "Standard AWS WAF charges on Shield-protected resources are covered; non-standard features and unprotected resources are not.",
+      "Bot Control and CAPTCHA are explicitly outside the covered standard costs, and coverage applies only to protected resources.",
+      "The subscription fee is not waived for resources behind AWS WAF; it is a subscription that then absorbs standard AWS WAF costs on protected resources."
+    ],
+    "concept_tags": ["AWS Shield Advanced", "AWS WAF", "DDoS protection"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/waf/latest/developerguide/ddos-advanced-summary.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A ransomware-resilience review requires that backups cannot be deleted or have their retention shortened, even by an administrator with full privileges. The estate is backed up with AWS Backup. Which control meets this?",
+    "options": [
+      "A backup vault resource-based access policy denying `backup:DeleteRecoveryPoint` to everyone except the security team, which is sufficient because policies are evaluated before deletion.",
+      "AWS Backup Vault Lock, which prevents anyone — including you — from deleting backups or altering their retention period, enforcing a write-once-read-many (WORM) model.",
+      "Copying backups cross-Region, which makes them immutable because a copy in another Region cannot be deleted from the source account.",
+      "Enabling backup encryption with a customer managed KMS key, since a backup whose key is protected cannot be deleted."
+    ],
+    "correct_index": 1,
+    "explanation": "AWS Backup Vault Lock is the control designed for this: it prevents anyone, including the account that owns the vault, from deleting backups or altering their retention period, enforcing a WORM model as an additional layer of defence. A vault access policy (option 1) is a strong control but remains editable by a sufficiently privileged principal, which is exactly the threat model being asked about. Cross-Region copies (option 3) improve resilience against a Regional event but are themselves deletable, and cross-account copies into a separate repository account are the related pattern for isolating them from a compromised account. Encryption (option 4) protects confidentiality, not deletion: a key does not stop a delete call. Worth knowing alongside it: backup content is immutable in the sense that nobody can alter it, and vaults keep the recovery points even after the source resource is deleted.",
+    "option_explanations": [
+      "An access policy can be changed by a principal with enough privilege, which is precisely the risk Vault Lock is meant to remove.",
+      "Vault Lock enforces WORM: no one, including the account owner, can delete backups or shorten retention while the lock is in effect.",
+      "A cross-Region copy is another deletable recovery point; geography is not immutability.",
+      "Encryption protects the contents from being read, not the recovery point from being deleted."
+    ],
+    "concept_tags": ["AWS Backup", "Backup Vault Lock", "WORM storage"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/aws-backup/latest/devguide/whatisbackup.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "An organization with 40 accounts backs up EBS volumes with a Lambda snapshot script, RDS with automated backups, DynamoDB with on-demand backups, and EFS not at all. They want one policy, applied by tag, with copies in a second Region and a separate account. What does AWS Backup provide?",
+    "options": [
+      "Centralized backup plans that can be assigned by tag across EC2/EBS, RDS, Aurora, DynamoDB, EFS, FSx, Storage Gateway volumes and more, with scheduled cross-Region and cross-account copies, applied organization-wide through AWS Organizations backup policies.",
+      "A console that aggregates the backups each service already takes, without changing how or when those backups are created.",
+      "Centralized plans, but copies are limited to the same account; cross-account protection requires each account to run its own plan and share snapshots manually.",
+      "Centralized plans for EBS and RDS only; file systems such as EFS and FSx must continue to use their own native backup mechanisms."
+    ],
+    "correct_index": 0,
+    "explanation": "AWS Backup centralises and automates data protection across AWS services: you define **backup plans** (schedules, retention, lifecycle) and assign resources in several ways including by tag, and it supports EC2 instances backed by EBS, EBS volumes, S3, RDS, Aurora, DynamoDB, EFS, the FSx family, Storage Gateway volumes, DocumentDB, Neptune, Redshift and others. It copies backups **cross-Region** on demand or as part of a plan, and **cross-account** within an AWS Organizations structure — the \"fan in to a repository account, fan out for resilience\" pattern — with backup policies applied organization-wide. Options 3 and 4 understate its scope, and option 2 describes a dashboard: AWS Backup actually performs the backups, and it explicitly does not govern backups taken outside it.",
+    "option_explanations": [
+      "Tag-based assignment, a wide service list, and scheduled cross-Region and cross-account copies under Organizations policies are exactly what AWS Backup adds.",
+      "AWS Backup creates and manages the backups itself; it does not govern backups taken outside it.",
+      "Cross-account copies within an AWS Organizations structure are a first-class feature.",
+      "EFS, the FSx family, DynamoDB, Redshift, Neptune and others are supported resource types."
+    ],
+    "concept_tags": ["AWS Backup", "backup and restore", "AWS Organizations"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/aws-backup/latest/devguide/whatisbackup.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "A hybrid workload is connected with a single 10 Gbps Direct Connect dedicated connection. The business asks for resilience against a device failure, a fibre cut *and* the loss of an entire Direct Connect location. Which AWS Direct Connect Resiliency Toolkit model applies?",
+    "options": [
+      "High Resiliency: two single connections to multiple locations, which protects against a fibre cut or device failure and prevents a complete location failure.",
+      "Maximum Resiliency: separate connections terminating on separate devices in more than one location, which gives resilience against device, connectivity and complete location failures.",
+      "Development and Test: separate connections on separate devices in one location, which is the standard production model.",
+      "A single connection plus a Site-to-Site VPN backup, which the Resiliency Toolkit classifies as maximum resiliency because the paths are independent."
+    ],
+    "correct_index": 1,
+    "explanation": "The Resiliency Toolkit defines three models. **Maximum Resiliency** — separate connections terminating on separate devices in more than one location — is the one that covers device, connectivity *and* complete location failures, which is what was asked for. **High Resiliency** uses two single connections to multiple locations and protects against a fibre cut or device failure; **Development and Test** uses separate connections on separate devices in a single location and gives no protection against a location failure, so it is explicitly for non-critical workloads (option 3 mislabels it). A VPN over the internet is a valid and common backup path for Direct Connect, but it is not one of the toolkit's resiliency models (option 4).",
+    "option_explanations": [
+      "High Resiliency is the two-single-connections-to-multiple-locations model; the requirement for device-level redundancy as well points to the maximum model.",
+      "Maximum Resiliency uses separate connections on separate devices in more than one location, covering device, connectivity and location failures.",
+      "Development and Test is single-location and explicitly intended for non-critical workloads.",
+      "Direct Connect plus VPN is a documented backup pattern, but it is not one of the Resiliency Toolkit's models."
+    ],
+    "concept_tags": ["Direct Connect", "hybrid networking", "High Availability"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/directconnect/latest/UserGuide/disaster-recovery-resiliency.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "A Lambda-based API opens a new connection to an RDS for PostgreSQL database on almost every invocation. At peak the database exhausts `max_connections`, and during a Multi-AZ failover every in-flight request errors out. Which managed component addresses both problems, and where must it sit?",
+    "options": [
+      "Amazon RDS Proxy, which pools and shares database connections and preserves application connections while automatically connecting to a standby during a failure; it must be in the same VPC as the database and cannot be publicly accessible.",
+      "Amazon RDS Proxy, deployed as a public endpoint so Lambda functions outside the VPC can reach it without any networking changes.",
+      "An Application Load Balancer in front of the database, which pools TCP connections and reroutes them on failover.",
+      "ElastiCache in front of the database, which removes the connection problem by absorbing the reads and masking the failover."
+    ],
+    "correct_index": 0,
+    "explanation": "RDS Proxy is built for exactly this pair of symptoms: it establishes a connection pool and reuses connections, avoiding the memory and CPU overhead of a new connection per invocation and letting you cap how many database connections are created — it queues or throttles beyond that rather than letting the database be overwhelmed — and it makes applications more resilient to failures by automatically connecting to a standby DB instance **while preserving application connections**. It must live in the same VPC as the database and **cannot be publicly accessible**, even if the database is (option 2). An ALB is an HTTP/TCP load balancer for application targets, not a database connection pooler (option 3). A cache reduces read load but does nothing about connection churn on writes or about failover (option 4). RDS Proxy can also enforce IAM authentication for clients and connect using Secrets Manager credentials.",
+    "option_explanations": [
+      "Connection pooling plus preserved connections through failover is precisely what RDS Proxy provides, and it must sit in the database's VPC without public access.",
+      "An RDS Proxy can't be publicly accessible; the Lambda functions have to reach it from within the VPC.",
+      "A load balancer does not pool database sessions or understand the database protocol's connection state.",
+      "Caching reduces read traffic but leaves connection churn and failover behaviour unchanged."
+    ],
+    "concept_tags": ["RDS Proxy", "connection pooling", "RDS failover behaviour"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-proxy.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "A regulator requires that objects replicated to a second Region be measurably timely, with alerting when replication is slow. The team enables S3 Replication Time Control. What does it give them?",
+    "options": [
+      "A guarantee that every object is replicated within 15 minutes, enforced by S3 rejecting writes that cannot meet the window.",
+      "Replication of most objects in seconds and 99.9 percent of objects within 15 minutes, plus S3 Replication metrics and the `OperationMissedThreshold` / `OperationReplicatedAfterThreshold` event notifications for objects that exceed the threshold.",
+      "Synchronous replication: the `PUT` does not return until the object exists in the destination bucket.",
+      "Replication metrics only; the 15-minute figure is a target for standard replication and RTC simply surfaces the measurement."
+    ],
+    "correct_index": 1,
+    "explanation": "S3 RTC replicates most uploaded objects in seconds and 99.9 percent of them within 15 minutes, and it brings two tracking mechanisms with it: S3 Replication metrics (operations and bytes pending replication, maximum replication time, failed operations) and S3 Event Notifications with `OperationMissedThreshold` and `OperationReplicatedAfterThreshold`, which tell the bucket owner when an object misses the 15-minute threshold and when it finally replicates. Replication remains asynchronous — the `PUT` returns as soon as the source write completes (option 3) — and nothing rejects writes (option 1). Metrics can be enabled independently of RTC, but the timeliness commitment and the threshold events are what RTC adds (option 4). Two caveats worth remembering: the RTC SLA does not apply while you exceed S3's request-rate guidelines or the default 1 Gbps replication transfer quota.",
+    "option_explanations": [
+      "There is no write rejection and no absolute guarantee: the commitment is 99.9 percent within 15 minutes, with events for the exceptions.",
+      "Most objects in seconds, 99.9 percent within 15 minutes, with replication metrics and the two threshold events for monitoring.",
+      "S3 replication is asynchronous; RTC tightens and measures the timing but does not make the `PUT` wait.",
+      "Replication metrics can be enabled on their own. RTC adds the 15-minute commitment and the threshold event notifications."
+    ],
+    "concept_tags": ["S3 replication", "Replication Time Control", "Cross-Region Replication"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-time-control.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "A Windows application needs a shared file system reachable over SMB, with NTFS permissions and Active Directory authentication, that survives the loss of an Availability Zone. Which choice and configuration fits?",
+    "options": [
+      "Amazon EFS with an SMB mount target in each Availability Zone, joined to AWS Managed Microsoft AD.",
+      "Amazon FSx for Windows File Server in a Multi-AZ deployment, which provisions and maintains a standby file server in a second Availability Zone within the Region; it serves SMB, uses Windows ACLs and authenticates users with Microsoft Active Directory.",
+      "Amazon FSx for Windows File Server in a Single-AZ deployment plus daily backups, since backups make the file system Multi-AZ on restore.",
+      "Amazon FSx for Lustre, which presents SMB shares and is the Windows-oriented member of the FSx family."
+    ],
+    "correct_index": 1,
+    "explanation": "FSx for Windows File Server is the managed native Windows file system: it serves the SMB protocol (2.0 to 3.1.1), provides file and folder access control with Windows ACLs, and authenticates users with Microsoft Active Directory, which the file system is joined to at creation. It offers two availability levels — Single-AZ, which handles component failures within one AZ, and **Multi-AZ**, which provisions and maintains a standby file server in a separate Availability Zone in the Region — so Multi-AZ is what survives losing an AZ. EFS is an NFS file system and has no SMB access (option 1). Backups protect data but do not make a Single-AZ file system highly available; a restore is a recovery action, not a failover (option 3). FSx for Lustre is a high-performance parallel file system for compute-intensive workloads, not a Windows SMB share (option 4).",
+    "option_explanations": [
+      "EFS speaks NFS, not SMB, and does not use Windows ACLs or Active Directory authentication.",
+      "Multi-AZ FSx for Windows File Server keeps a standby file server in a second AZ and provides SMB, Windows ACLs and Active Directory authentication.",
+      "Daily backups are a recovery mechanism; they do not provide the automatic failover a Multi-AZ deployment does.",
+      "FSx for Lustre is a parallel file system for HPC and analytics workloads, not an SMB file server."
+    ],
+    "concept_tags": ["FSx for Windows File Server", "SMB file storage", "High Availability"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/fsx/latest/WindowsGuide/what-is.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "An order service emits events that must reach four independent consumers, each interested in a different subset, with the option to transform an event before delivery. A second requirement is to take records from one DynamoDB stream, enrich them, and deliver them to one target. Which parts of Amazon EventBridge fit each?",
+    "options": [
+      "An event bus for the four consumers — buses route events from many sources to many targets with optional transformation — and a pipe for the DynamoDB stream, since EventBridge Pipes is for point-to-point integrations from a single source to a single target with enrichment.",
+      "Pipes for both, since a pipe can fan out to multiple targets when several rules match.",
+      "An event bus for both, because a bus can be configured in point-to-point mode with enrichment when only one target is attached.",
+      "Neither: EventBridge only schedules tasks, and fan-out requires Amazon SNS with filter policies while stream enrichment requires a Lambda function."
+    ],
+    "correct_index": 0,
+    "explanation": "EventBridge has two ways to process and deliver events and the split matches the two requirements. **Event buses** are routers that receive events and deliver them to zero or more targets, well suited to routing from many sources to many targets with optional transformation before delivery — the four consumers, each selected by its own rule's event pattern. **Pipes** are for point-to-point integrations: each pipe receives events from a single source and delivers to a single target, with support for advanced transformation and **enrichment** — which is what the DynamoDB stream case describes. The two are often combined, for example a pipe whose target is an event bus. A pipe does not fan out (option 2) and a bus is not a point-to-point enrichment pipeline (option 3). EventBridge Scheduler exists, but scheduling is only one of its parts (option 4).",
+    "option_explanations": [
+      "Buses route many-to-many with optional transformation; pipes are single-source-to-single-target with enrichment — one for each requirement.",
+      "A pipe delivers to one target. Fan-out is what an event bus with multiple rules does.",
+      "An event bus has no enrichment step; enrichment is a Pipes feature.",
+      "EventBridge includes Scheduler but is primarily an event router; buses and pipes cover both requirements natively."
+    ],
+    "concept_tags": ["Amazon EventBridge", "event-driven architecture", "decoupling"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-what-is.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A session store must survive the loss of a node without losing sessions, support sorted sets for a leaderboard, and offer automatic failover. A colleague proposes ElastiCache for Memcached because it is multi-threaded and will use the large node's cores. What is the correct assessment?",
+    "options": [
+      "Memcached is right: it supports replication and automatic failover, and sorted sets can be emulated with its list type.",
+      "Memcached cannot meet the requirements — it has no replication, no automatic failover, no sorted sets and no pub/sub — so Valkey or Redis OSS is needed; Memcached's multi-threading is a genuine advantage, but only for simple object caching.",
+      "Either works: both engines support replication and complex data types, and the only difference is that Memcached scales out by adding nodes.",
+      "Valkey/Redis OSS is required, and the trade-off is that it cannot scale out at all — a single node must hold the whole dataset."
+    ],
+    "correct_index": 1,
+    "explanation": "The comparison table is unambiguous: Memcached has **no** high availability through replication, **no** automatic failover, **no** sorted sets and **no** pub/sub, and its data types are simple. Valkey or Redis OSS provides replication (automatic failover optional with cluster mode disabled, required with cluster mode enabled), complex data types including sorted sets, pub/sub, and backup and restore. Memcached's real advantages are the simplest model, multi-threading across large nodes, and easy scale-out by adding and removing nodes — all irrelevant to a session store that must not lose data. Option 4 is wrong about scaling: with cluster mode enabled, Valkey/Redis OSS supports data partitioning and online resharding.",
+    "option_explanations": [
+      "Memcached has no replication, no automatic failover and no sorted sets; there is nothing to emulate them with.",
+      "The requirements are all on the Valkey/Redis OSS side of the comparison; Memcached's multi-threading only helps simple object caching.",
+      "Only Valkey/Redis OSS supports replication and complex data types. The engines are not interchangeable here.",
+      "With cluster mode enabled, Valkey/Redis OSS does partition data across shards and supports online resharding."
+    ],
+    "concept_tags": ["ElastiCache Redis vs Memcached", "caching strategies", "High Availability"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/SelectEngine.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "An EC2 fleet uses default monitoring. An engineer creates a CloudWatch alarm on `CPUUtilization` with a 60-second period and finds it spends most of its time in `INSUFFICIENT_DATA`. What is happening, and what are the options?",
+    "options": [
+      "Basic monitoring publishes EC2 metrics every 5 minutes, so a 60-second period has no data points in most periods. Either set the alarm period to at least 300 seconds, or enable detailed monitoring, which publishes at 1-minute resolution.",
+      "EC2 metrics are high-resolution by default; the alarm is misconfigured and needs a 10- or 30-second period to match.",
+      "CloudWatch alarms require at least three evaluation periods; with one period the alarm cannot leave `INSUFFICIENT_DATA`.",
+      "Metrics produced by AWS services are published on demand, so the alarm must first be attached to a dashboard for data to be generated."
+    ],
+    "correct_index": 0,
+    "explanation": "Basic monitoring for EC2 provides metrics every 5 minutes, and the guidance is explicit: choose an alarm period greater than or equal to the metric's resolution — at least 300 seconds for a basic-monitoring metric, at least 60 seconds for a detailed-monitoring metric. Detailed monitoring publishes at 1-minute resolution, for a charge. Metrics from AWS services are **standard resolution** (one-minute granularity) by default, not high resolution (option 2): high resolution is a one-second granularity you opt into when publishing a *custom* metric, and only then can an alarm use a 10- or 30-second period. Evaluation periods control how many data points are compared, not whether the alarm can leave `INSUFFICIENT_DATA` (option 3), and AWS service metrics are published continuously rather than on demand (option 4).",
+    "option_explanations": [
+      "Basic EC2 monitoring is 5-minute; the alarm period must be at least as long as the metric's resolution, or detailed monitoring must be enabled for 1-minute data.",
+      "AWS service metrics are standard resolution (one minute) by default; high resolution applies to custom metrics you publish as such.",
+      "Evaluation periods determine how many data points are compared; a single period is valid.",
+      "AWS services publish their metrics continuously; dashboards only display them."
+    ],
+    "concept_tags": ["CloudWatch metrics", "metric resolution", "CloudWatch alarms"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "An auditor asks for per-minute CPU data from eight months ago, collected at the time with 1-minute detailed monitoring. What will CloudWatch return, and why?",
+    "options": [
+      "The 1-minute data points, since metrics are retained at their original resolution for 15 months.",
+      "Only 1-hour resolution data: 1-minute data points are available for 15 days, 5-minute for 63 days, and 1-hour for 455 days, with older data aggregated for long-term storage rather than kept at the original resolution.",
+      "Nothing: CloudWatch metrics expire after 90 days regardless of resolution, so the data is gone.",
+      "Only 5-minute resolution data, since eight months is within the 63-day window once detailed monitoring is enabled."
+    ],
+    "correct_index": 1,
+    "explanation": "CloudWatch retains metric data in tiers and aggregates it for long-term storage: data points with a period under 60 seconds (high-resolution custom metrics) last 3 hours; 1-minute data points are available for 15 days; 5-minute for 63 days; and 1-hour for 455 days (15 months). Data initially published at a finer period is aggregated as it ages — 1-minute data stays at 1-minute resolution for 15 days, is then retrievable only at 5-minute resolution, and after 63 days only at 1-hour resolution. At eight months (roughly 240 days), only the 1-hour rollup remains. If per-minute fidelity must survive that long, the data has to be exported. Metrics do not expire at 90 days (option 3), and 63 days is a retention tier rather than a window that eight months falls inside (option 4).",
+    "option_explanations": [
+      "15 months is the retention of the 1-hour rollup, not of the original 1-minute data points.",
+      "1-minute data lasts 15 days, 5-minute 63 days, 1-hour 455 days; at eight months only the hourly aggregate remains.",
+      "Metrics are retained up to 15 months in aggregated form; they expire only after 15 months without new data.",
+      "Eight months is well past the 63-day tier, so even 5-minute resolution is no longer available."
+    ],
+    "concept_tags": ["CloudWatch metrics", "metrics retention"],
+    "question_type": "detail_recall",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/cloudwatch_concepts.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "Two Athena tables sit on S3. Table A's data is laid out as `s3://logs/year=2026/month=09/day=22/`, table B's as `s3://elb/2026/09/22/`. Each has a new day's data every day. How are new partitions registered in each case?",
+    "options": [
+      "`MSCK REPAIR TABLE` for both, since Athena discovers any directory layout by scanning the table's location.",
+      "`MSCK REPAIR TABLE` works for table A, whose Hive-style `key=value` paths it can parse; table B is not in Hive format, so each partition must be added with `ALTER TABLE ADD PARTITION` — or both can avoid manual registration with partition projection.",
+      "`ALTER TABLE ADD PARTITION` for both, because `MSCK REPAIR TABLE` only works on tables backed by the AWS Glue Data Catalog.",
+      "Neither is needed: Athena re-scans the S3 prefix on every query and picks up new directories automatically."
+    ],
+    "correct_index": 1,
+    "explanation": "Athena can use Apache Hive-style partitions whose paths contain `key=value` pairs, and `MSCK REPAIR TABLE` loads those — the command **works only with Hive-style partitions**. Layouts like `2026/09/22/`, used by CloudTrail logs and Firehose delivery streams among others, are non-Hive and require `ALTER TABLE ADD PARTITION` for each partition. For highly partitioned tables whose structure is known in advance, **partition projection** avoids managing partitions at all: values and locations are calculated from table properties rather than looked up in a metadata store, which also cuts query runtime. Athena does not discover partitions on its own at query time (option 4), and `MSCK REPAIR TABLE` is not restricted to Glue-backed tables (option 3).",
+    "option_explanations": [
+      "`MSCK REPAIR TABLE` only understands Hive-style `key=value` paths; table B's layout is not one.",
+      "Hive-style paths take `MSCK REPAIR TABLE`; non-Hive layouts take `ALTER TABLE ADD PARTITION`, and partition projection removes the need for either.",
+      "The constraint on `MSCK REPAIR TABLE` is the path format, not the catalog.",
+      "Partitions must be registered — by command or by projection — before Athena will read them."
+    ],
+    "concept_tags": ["Amazon Athena", "data partitioning", "query performance"],
+    "question_type": "detail_recall",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/athena/latest/ug/partitions.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "Analysts query a 40 TB S3 dataset with Athena, filtering on a date in almost every query, and the monthly bill is dominated by data scanned. Which change reduces the cost most directly?",
+    "options": [
+      "Partition the data by date so that a query specifying the partition in its `WHERE` clause scans only that partition's data; for a highly partitioned table with a known structure, partition projection avoids managing the partitions at all.",
+      "Increase the Athena workgroup's query concurrency, so each query scans a smaller share of the data.",
+      "Move the dataset to S3 Glacier Instant Retrieval, since Athena bills on the storage class of the objects it scans.",
+      "Add a secondary index to the table in the Glue Data Catalog, which lets Athena seek to matching rows instead of scanning."
+    ],
+    "correct_index": 0,
+    "explanation": "Athena's cost follows the data it scans, so the lever is scanning less. Partitioning restricts the amount of data scanned by each query — the documentation states it directly: if you query a partitioned table and specify the partition in the `WHERE` clause, Athena scans the data only from that partition, improving performance and reducing cost. Partitioning by date matches a filter present in almost every query. For tables with many partitions and a predictable structure, partition projection computes partition values and locations from table properties instead of looking them up, cutting query runtime as well as the management burden. Concurrency changes how many queries run at once, not how much each scans (option 2); the storage class does not change the bytes scanned (option 3); and Athena has no row-level secondary indexes — Glue partition indexes speed up partition *lookup*, not row seeking (option 4).",
+    "option_explanations": [
+      "Partitioning on the column queries actually filter by is what cuts the bytes scanned, and projection removes the partition-management overhead.",
+      "Concurrency affects throughput of queries, not the volume each one reads.",
+      "Athena charges on data scanned; the storage class does not reduce that, and archival classes would need a restore first.",
+      "Athena does not support row-level secondary indexes; Glue partition indexes accelerate partition metadata lookup only."
+    ],
+    "concept_tags": ["Amazon Athena", "data partitioning", "query cost"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/athena/latest/ug/partitions.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "A seven-year retention policy is implemented with AWS Backup, keeping daily backups of EBS volumes and RDS databases. Storage cost is climbing. Which two properties of AWS Backup are the levers?",
+    "options": [
+      "Lifecycle policies that automatically transition backups from warm to cold storage on a schedule you define, and incremental backups, where after the first full copy only the changes are stored for supported resource types.",
+      "Deduplication across accounts in the organization, and automatic conversion of all backups older than 90 days into a single consolidated full backup.",
+      "Compression of recovery points at rest, and automatic deletion of the oldest backup whenever a new one is taken.",
+      "Nothing within AWS Backup: cost control means reducing backup frequency or shortening retention, because every recovery point is a full copy priced at the same rate."
+    ],
+    "correct_index": 0,
+    "explanation": "AWS Backup offers two mechanisms that bear directly on this. **Lifecycle policies** transition backups from warm storage to a low-cost **cold storage** tier automatically, on a schedule you define, which is the documented way to meet long retention requirements while minimising storage cost. **Incremental backups** mean the first backup of a resource is a full copy and each successive backup stores only the changes, for the resource types that support it — note the caveat that not all resource types do, and for those every backup is a full copy, which can raise costs. Options 2 and 3 invent features. Option 4 is wrong on the premise that every recovery point is a full copy at one rate, which is exactly what the two real levers contradict.",
+    "option_explanations": [
+      "Lifecycle transitions to cold storage and incremental backups are the two documented cost mechanisms in AWS Backup.",
+      "There is no cross-account deduplication and no consolidation of old backups into a single full copy.",
+      "These are invented behaviours; retention is governed by the lifecycle policy, not by automatic deletion on each new backup.",
+      "Incremental backups and a cold storage tier both exist, so cost can be reduced without cutting frequency or retention."
+    ],
+    "concept_tags": ["AWS Backup", "backup lifecycle", "storage cost optimization"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/aws-backup/latest/devguide/whatisbackup.html"]
+  }
+]
