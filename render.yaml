@@ -8,6 +8,10 @@ services:
     plan: free
     rootDir: api
     buildCommand: pip install -r requirements.txt
+    # Schema migrations run from the app's startup hook (db_schema.create_db_and_tables),
+    # so there is nothing to run here: one instance, one upgrade, before the first
+    # request is served. Scaling past one instance means moving that to a
+    # pre-deploy step — see the docstring on that function.
     startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:

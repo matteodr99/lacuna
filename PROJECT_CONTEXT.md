@@ -360,10 +360,41 @@ IAM Identity Center, Network Firewall, Outposts, Local Zones.
 The weak-spots page has only been exercised on its failure path — its happy
 path needs a `GEMINI_API_KEY` and one live call.
 
-Data note: `cert_prep.db` is SQLite for dev, no migrations set up. Schema
-changes currently mean deleting the file — or, as every addition since the
-reports table has done, adding a new table instead of a column, which
-`create_all` handles. Alembic is still the right answer before real users.
+**Schema changes go through Alembic** (added 2026-09-22, before auth). The
+old rule — `create_all` creates missing tables and ignores everything else,
+so a schema change means deleting `cert_prep.db` — was survivable with one
+local SQLite file and stopped being survivable once Neon held real answer
+history. It is also why the schema looks the way it does: every addition
+between `QuestionReport` and Alembic was a new *table* rather than a new
+*column*, to stay inside what `create_all` could do.
+
+- The baseline revision is the schema as it stood that day, generated from
+  the models against an empty database. The dev SQLite file and the Neon
+  database were **stamped** with it (`alembic stamp head`), not migrated, so
+  it only ever runs on a database created from scratch.
+- `create_db_and_tables()` now runs `alembic upgrade head` instead of
+  `create_all`, so there is one code path for the API's startup hook, the
+  CLI scripts and a fresh clone. Running migrations from app startup is a
+  single-instance convenience; scaling past one instance means moving it to
+  a pre-deploy step, and the docstring says so.
+- The URL is **not** in `alembic.ini`: `migrations/env.py` takes it from
+  `db_schema`, so `alembic upgrade head` can never hit a different database
+  than the app, and no connection string lives in a versioned file.
+- `render_as_batch` is on for SQLite, which cannot `ALTER` most things.
+  Without it the first column change would fail locally and pass on
+  Postgres — the worst place to find the difference.
+- Two gotchas worth not rediscovering: autogenerate emits
+  `sqlmodel.sql.sqltypes.AutoString` **without importing sqlmodel**, so
+  `script.py.mako` adds that import for every future migration; and it
+  renders a *rename* as a DROP plus an ADD, which silently loses the data.
+  Read every generated migration.
+
+`test_migrations.py` guards the gap Alembic leaves open: Alembic keeps the
+database in step with the migrations, but nothing keeps the migrations in
+step with the models. It builds a database from the migrations alone and
+runs `alembic check` against the models, plus a downgrade-runs test and a
+single-head test. Verified by deliberately adding an unmigrated column and
+watching it fail. Same class of guard as `test_taxonomy.py`.
 
 **Deployed on 2026-09-15**: API at `https://lacuna-api.onrender.com`
 (Render, blueprint from `render.yaml`), frontend at

@@ -17,6 +17,7 @@ Setup:
 
 import random
 import os
+from pathlib import Path
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
@@ -289,7 +290,29 @@ engine = create_engine(
 
 
 def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
+    """Bring the database up to the latest Alembic revision.
+
+    This used to be `SQLModel.metadata.create_all(engine)`, which creates
+    missing tables and silently ignores everything else — so adding a
+    column meant deleting the database. That was survivable while the only
+    database was a local SQLite file; it stopped being survivable when
+    production moved to Neon with real answer history in it. Every
+    addition between the reports table and Alembic was therefore a new
+    table rather than a new column, which is why the schema has the shape
+    it has.
+
+    Running migrations from the application's startup hook is a
+    single-instance convenience: two instances starting at once would both
+    try to upgrade, and on Postgres one of them would fail. The free tier
+    runs one instance, so this is fine today — if the service is ever
+    scaled out, move this call to a pre-deploy or release step and let the
+    app assume the schema is current.
+    """
+    from alembic import command
+    from alembic.config import Config
+
+    config = Config(str(Path(__file__).resolve().parent / "alembic.ini"))
+    command.upgrade(config, "head")
 
 
 # ---------------------------------------------------------------------
