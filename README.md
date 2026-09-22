@@ -207,14 +207,13 @@ it is the exact failure the review gate exists to catch.
 
 ## Current state
 
-The bank holds **35 questions: 34 approved, 1 rejected** as a duplicate. 14
-were generated with Gemini and 21 written by hand. Every approved question
-carries a `review_note` saying what its verdict rests on, and 23 of them carry
+The bank holds **59 questions: 58 approved, 1 rejected** as a duplicate. 14
+were generated with Gemini and 45 written by hand. Every approved question
+carries a `review_note` saying what its verdict rests on, and 47 of them carry
 the documentation pages their claims were checked against; the other 11 are
 standard material that was reviewed without a page being fetched for them
 specifically, and the note says so.
 
 Known gaps, in rough priority order: no auth (the browser holds a guest user id
 in `localStorage`), no migrations (a schema change currently means deleting
-`cert_prep.db`), no study-plan UI despite the endpoint existing, and no public
-landing page.
+`cert_prep.db`), and no study-plan UI despite the endpoint existing.

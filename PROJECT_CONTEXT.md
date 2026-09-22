@@ -316,13 +316,27 @@ Read `api.py` for exact request/response shapes. Endpoints:
 ## Current state
 
 Backend done, 41 tests passing (`test_api.py`, `test_parsing.py`,
-`test_taxonomy.py`). The question bank holds 35 questions: **34 approved, 1
-rejected** as a duplicate, reviewed on 2026-09-11. 14 came from the Gemini seed
-run of 2026-09-08, 10 were imported by hand on 2026-09-10, 6 more
-(`questions_batch_2.json`) cover the six jobs the seed run never produced, and 5
-(`questions_batch_3.json`) cover ground the SEED_PLAN never had. The quiz serves
-questions for the first time. Frontend has the quiz flow and the weak-spots
-dashboard; the public landing page is still to do.
+`test_taxonomy.py`). The question bank holds 59 questions: **58 approved, 1
+rejected** as a duplicate. 14 came from the Gemini seed run of 2026-09-08, 10
+were imported by hand on 2026-09-10, 6 more (`questions_batch_2.json`) cover
+the six jobs the seed run never produced, 5 (`questions_batch_3.json`) cover
+ground the SEED_PLAN never had, and 24 (`questions_batch_4.json`, reviewed
+2026-09-22 — `apply_review_2026-09-22.py`) are the first batch toward the
+100-question target, weighted to the domains the exam weights most: coverage is
+now 18 / 14 / 14 / 12 across Secure / Resilient / High-Performing /
+Cost-Optimized against exam weights of 30 / 26 / 24 / 20 %.
+
+**Batch 4 was written docs-first**: each source page was fetched and read
+before its question was drafted, rather than the question being written from
+memory and checked afterwards. That order caught three facts that had changed
+since the material most candidates learn from — the S3 object ceiling is 50 TB
+(the old 5 TB is now a distractor), NAT gateways have a *regional* availability
+mode that removes the one-per-AZ bookkeeping, and Compute Savings Plans are
+"up to 66%" — and those became the pivots of their questions. Docs-first is
+the way to keep writing: the product's whole claim is the layer where memory
+is stale.
+
+The 100-question target is still ~41 questions away; keep the weighting.
 
 The weak-spots page has only been exercised on its failure path — its happy
 path needs a `GEMINI_API_KEY` and one live call.

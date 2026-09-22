@@ -1,0 +1,572 @@
+[
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A CI pipeline runs on an EC2 instance with an instance profile. A job assumes `DeployRole` in a second account, then uses those credentials to assume `AuditRole` in a third account. `AuditRole` has its maximum session duration set to 8 hours, and the job requests `DurationSeconds=28800` on the second `AssumeRole` call. What happens?",
+    "options": [
+      "The call succeeds and the `AuditRole` session lasts 8 hours, because the role's maximum session duration governs every `AssumeRole` call.",
+      "The call fails, because using one role's credentials to assume another role (role chaining) limits the session to one hour regardless of the role's maximum session duration setting.",
+      "The call fails, because the instance-profile credentials on the EC2 instance are themselves capped at one hour, and no chained session can outlive them.",
+      "The call succeeds only if `AuditRole` is assumed directly from the instance profile; a session obtained through another role can never exceed 15 minutes."
+    ],
+    "correct_index": 1,
+    "explanation": "Role chaining — using temporary credentials from one role to assume a second role — limits the second session to a maximum of one hour, whatever the target role's maximum session duration is set to. Requesting `DurationSeconds` above 3,600 in a chained call is rejected. The one-hour cap does not apply to the *initial* assumption of a role from user credentials, or to applications on EC2 using instance profiles: the first hop from the instance profile to `DeployRole` may run to that role's configured maximum (up to 12 hours). Option 3 is wrong because instance-profile credentials are not subject to the maximum session duration and are rotated by EC2; option 4 invents a 15-minute rule (15 minutes is the *minimum* `DurationSeconds`, not a chaining limit).",
+    "option_explanations": [
+      "A role's maximum session duration bounds direct assumptions only. In role chaining the session is capped at one hour, so an 8-hour request on the chained hop fails.",
+      "Role chaining — assuming a role with credentials obtained from another role — limits the session to one hour regardless of the target role's maximum session duration. The initial assumption from an instance profile is not subject to this cap.",
+      "Instance-profile credentials are not subject to the role's maximum session duration; the limit comes from the chaining, not from the EC2 credentials.",
+      "15 minutes is the minimum `DurationSeconds` for any `AssumeRole` call, not a chaining limit. Chained sessions can run up to one hour."
+    ],
+    "concept_tags": ["IAM roles", "role chaining", "STS session duration"],
+    "question_type": "detail_recall",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A company runs its application behind an Application Load Balancer in `eu-west-1` and fronts it with a CloudFront distribution using the alternate domain name `app.example.com`. Both the viewer-facing connection and the CloudFront-to-origin connection must use HTTPS with ACM certificates. In which Region(s) must the ACM certificates be requested?",
+    "options": [
+      "Both certificates in `eu-west-1`, so that they sit in the same Region as the load balancer and the distribution's origin.",
+      "The viewer certificate in US East (N. Virginia) `us-east-1`; the origin certificate on the ALB in `eu-west-1`, the load balancer's own Region.",
+      "Both certificates in `us-east-1`, because CloudFront is a global service that reads ACM only from that Region.",
+      "Either Region for both, provided the certificate covers `app.example.com` in its Subject Alternative Name field."
+    ],
+    "correct_index": 1,
+    "explanation": "To use an ACM certificate for HTTPS between viewers and CloudFront, the certificate must be requested or imported in US East (N. Virginia) — `us-east-1` — regardless of where the origin lives. The origin side is different: when the origin is an Elastic Load Balancing load balancer, its certificate is requested in the load balancer's own Region, because it is the ALB, not CloudFront, that presents it. Option 3 over-applies the `us-east-1` rule to the origin; option 1 ignores it for the viewer side; option 4 is right about the SAN requirement but wrong that Region does not matter.",
+    "option_explanations": [
+      "The viewer-facing certificate must be in `us-east-1`; `eu-west-1` only works for the load balancer's own certificate.",
+      "CloudFront reads viewer certificates from ACM in `us-east-1` only. An ALB origin presents its own certificate, which lives in the load balancer's Region.",
+      "The `us-east-1` requirement applies to the certificate CloudFront presents to viewers. An ALB origin's certificate is requested in the ALB's Region, not in `us-east-1`.",
+      "The SAN must cover the alternate domain name, but that does not lift the Region rule: the viewer certificate is accepted from `us-east-1` only."
+    ],
+    "concept_tags": ["CloudFront", "ACM certificates", "HTTPS"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cnames-and-https-requirements.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A compliance rule requires that the KMS key protecting an S3 bucket be rotated every year. The bucket already holds 40 TB of SSE-KMS objects encrypted under a customer managed symmetric key. The team enables automatic key rotation on that key. Which statement about the outcome is correct?",
+    "options": [
+      "Existing objects must be re-encrypted with a copy job; until then they remain protected by retired key material that AWS KMS will delete at the next rotation.",
+      "AWS KMS generates new key material on the rotation date, keeps every previous version to decrypt existing ciphertext, and existing objects are neither re-encrypted nor made unreadable.",
+      "Rotation is rejected, because keys used by S3 server-side encryption must be rotated manually by creating a new key and updating the bucket's default encryption.",
+      "Rotation is applied to the data keys that encrypted each object, so S3 re-wraps every object's data key with the new material in the background."
+    ],
+    "correct_index": 1,
+    "explanation": "Automatic rotation changes only the *current* key material of the KMS key; the key ID, ARN, aliases and policies are unchanged. AWS KMS retains all previous key material for a key it generated and uses the right version transparently when decrypting, so existing S3 objects stay readable with no re-encryption and no code change. Rotation does not touch the data keys that protect individual objects, and it does not re-encrypt data (option 4). Old material is never deleted on rotation — only when the KMS key itself is deleted (option 1). Automatic rotation is supported on symmetric customer managed keys and is fully compatible with S3 SSE-KMS (option 3); manual rotation is what you fall back to for asymmetric, HMAC and custom-key-store keys, which cannot be auto-rotated.",
+    "option_explanations": [
+      "AWS KMS retains all previous key material for a key it generated and only deletes it with the key itself. No re-encryption is needed and nothing is retired at the next rotation.",
+      "Rotation swaps the current key material and keeps every older version; decrypt uses whichever version encrypted the ciphertext. Existing objects are untouched and readable.",
+      "Automatic rotation is supported on symmetric customer managed keys and is transparent to S3 SSE-KMS. Manual rotation is only required for key types that cannot be auto-rotated (asymmetric, HMAC, custom key store).",
+      "Key rotation has no effect on the data keys a KMS key generated and does not re-encrypt any data. It changes the KMS key's own material only."
+    ],
+    "concept_tags": ["KMS key rotation", "S3 SSE-KMS", "encryption at rest"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "Financial records are written to an S3 bucket with Object Lock enabled and a default retention of 7 years in **compliance** mode. An administrator with `AdministratorAccess` accidentally runs a simple `DELETE` (no version ID) against one of the objects from the CLI. What is the result?",
+    "options": [
+      "The request is rejected with `403 Forbidden`, because compliance mode blocks every delete, including those from the root user, until the retention period expires.",
+      "The request succeeds with `200 OK` and Amazon S3 inserts a delete marker as the current version; the locked object version itself is untouched and still retrievable.",
+      "The request succeeds only because the administrator holds `s3:BypassGovernanceRetention` through `AdministratorAccess`; the locked version is permanently deleted.",
+      "The request is rejected because Object Lock requires the `x-amz-bypass-governance-retention:true` header on any delete, which the CLI does not send by default."
+    ],
+    "correct_index": 1,
+    "explanation": "Object Lock protects object *versions*, and it works only on versioned buckets. A simple `DELETE` without a version ID never deletes a version: S3 returns `200 OK` and adds a delete marker on top, so the object disappears from a plain listing while the locked version remains in place and can be listed and retrieved by version ID. A *permanent* delete — one that names the version ID — is the request compliance mode refuses with `403`, for everyone including the root user (option 1 describes that case, not this one). `s3:BypassGovernanceRetention` and the bypass header apply to *governance* mode only and cannot override compliance mode (options 3 and 4).",
+    "option_explanations": [
+      "Compliance mode returns `403` for a *permanent* delete that specifies a version ID. A simple `DELETE` with no version ID is not a permanent delete: it succeeds and adds a delete marker.",
+      "A simple `DELETE` on a versioned bucket creates a delete marker and returns `200 OK`; the locked object version is untouched and remains retrievable by version ID.",
+      "`s3:BypassGovernanceRetention` overrides governance mode only; nothing overrides compliance mode short of deleting the AWS account. And a simple `DELETE` never removes a version anyway.",
+      "The bypass header is a governance-mode mechanism and is not required for an ordinary delete. The simple `DELETE` succeeds with a delete marker."
+    ],
+    "concept_tags": ["S3 Object Lock", "S3 versioning", "WORM storage"],
+    "question_type": "detail_recall",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A SaaS cost-monitoring vendor asks each customer to create an IAM role that trusts the vendor's AWS account. A security reviewer worries that another of the vendor's customers could supply *your* role ARN and have the vendor read your billing data. Which control addresses this, and who should choose its value?",
+    "options": [
+      "Add an `sts:ExternalId` condition to the role's trust policy, using a value that you generate and keep secret, then give it to the vendor.",
+      "Add an `sts:ExternalId` condition to the role's trust policy, using a unique value that the vendor generates for your tenant and includes in every `AssumeRole` call it makes on your behalf.",
+      "Replace the role with an IAM user whose access keys are shared with the vendor, so the credentials cannot be used by another tenant.",
+      "Add an `aws:SourceIp` condition restricting `AssumeRole` to the vendor's published IP ranges, which prevents other tenants from reaching the role."
+    ],
+    "correct_index": 1,
+    "explanation": "This is the cross-account confused deputy problem: a role ARN is not a secret, so another tenant can hand the vendor your ARN and trick it into acting on your account. The fix is the external ID: the vendor generates a unique value per customer and always passes that customer's value in its `AssumeRole` call; your trust policy requires it with an `sts:ExternalId` condition. Because the vendor — not its customers — controls which external ID goes with which request, a different tenant cannot make the vendor use yours. That is also why the value must come from the vendor rather than from you (option 1), and why it does not need to be secret. Option 3 trades the problem for long-lived shared credentials; option 4 does nothing, since every tenant's request comes from the same vendor IPs.",
+    "option_explanations": [
+      "The external ID must be unique among the vendor's customers and controlled by the vendor, so it is the vendor that issues it. It is also not a secret — its job is to bind a request to the right tenant, not to authenticate.",
+      "The vendor generates a per-customer external ID and always includes it in the `AssumeRole` call for that customer; your trust policy's `sts:ExternalId` condition then rejects any attempt made on behalf of a different tenant.",
+      "Shared long-lived access keys are worse in every respect and do not stop the deputy from being confused about which tenant it is acting for.",
+      "All tenants' requests originate from the vendor's own infrastructure, so an IP condition cannot distinguish one tenant from another."
+    ],
+    "concept_tags": ["IAM roles", "cross-account access", "confused deputy", "external ID"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A shared-services account hosts an S3 bucket that all 60 accounts in an AWS Organization must be able to write to. The security team wants the bucket policy to keep working as accounts are added to and removed from the organization, with no policy edits. Which condition should the bucket policy use?",
+    "options": [
+      "`aws:PrincipalOrgID` equal to the organization ID, with `Principal` set to `*`, so any principal from any account in the organization matches automatically.",
+      "`aws:PrincipalAccount` listing all 60 account IDs, since account IDs are the only stable identifier IAM can evaluate.",
+      "`aws:SourceOrgID` equal to the organization ID, which identifies the organization of the IAM principal making the request.",
+      "`aws:PrincipalArn` with a wildcard `arn:aws:iam::*:role/*`, which restricts access to roles while allowing every account."
+    ],
+    "correct_index": 0,
+    "explanation": "`aws:PrincipalOrgID` compares the organization the requesting principal belongs to with the ID in the policy, so a resource-based policy can say `Principal: *` plus this condition and automatically cover every account as the organization grows or shrinks — the documented alternative to listing account IDs. Listing accounts (option 2) works today and breaks at the first membership change. `aws:SourceOrgID` (option 3) is a different key: it describes the organization of the *resource* on whose behalf an AWS service principal is acting (a CloudTrail trail, for instance), not the calling IAM principal. Option 4 allows every role in every AWS account in the world, not just those in the organization. Note that `aws:PrincipalOrgID` also blocks AWS service principals such as CloudTrail delivering logs; those need a separate statement.",
+    "option_explanations": [
+      "`aws:PrincipalOrgID` matches any principal from any account in the named organization, so accounts joining or leaving are picked up without editing the policy.",
+      "Enumerating account IDs works only until the next account is created or removed; `aws:PrincipalOrgID` exists to replace exactly this list.",
+      "`aws:SourceOrgID` identifies the organization of the resource an AWS *service* is acting on behalf of, for confused-deputy protection. The calling IAM principal's organization is `aws:PrincipalOrgID`.",
+      "`arn:aws:iam::*:role/*` matches roles in every AWS account, not only those in the organization — it is broader than the requirement, not narrower."
+    ],
+    "concept_tags": ["AWS Organizations", "S3 bucket policies", "IAM condition keys", "resource-based policies"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-keys.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Secure Architectures",
+    "question": "A central logging account owns an S3 bucket that receives CloudTrail logs from several accounts. The bucket policy allows `s3:PutObject` for the service principal `cloudtrail.amazonaws.com` with no conditions. A reviewer points out that an unrelated AWS account that learns the bucket name could configure its own trail to deliver logs into this bucket. Which change closes the gap with the least disruption?",
+    "options": [
+      "Add an `aws:PrincipalOrgID` condition to the statement, so only trails in the organization can write.",
+      "Add an `aws:SourceAccount` (or `aws:SourceArn`) condition to the statement, so the CloudTrail service principal is allowed only when acting on behalf of the expected accounts or trails.",
+      "Replace the service principal with the IAM roles of each source account, because service principals cannot be constrained by conditions.",
+      "Add an `sts:ExternalId` condition to the statement, so CloudTrail must present the external ID configured on each trail."
+    ],
+    "correct_index": 1,
+    "explanation": "This is the cross-service confused deputy problem: a resource policy that trusts a service principal unconditionally trusts that service *whoever* configured it. AWS service principals include the account, resource and organization they are acting for, and `aws:SourceAccount`, `aws:SourceArn`, `aws:SourceOrgID` and `aws:SourceOrgPaths` are the condition keys that test them. Adding `aws:SourceAccount` (or the trail's ARN with `aws:SourceArn`) restricts delivery to trails owned by your accounts. `aws:PrincipalOrgID` (option 1) evaluates the *calling principal's* organization — here the principal is the CloudTrail service, not an organization member, so the condition would deny CloudTrail entirely. Option 3 is wrong on both counts: CloudTrail writes as its service principal, and conditions do apply to service principals. `sts:ExternalId` (option 4) belongs to `AssumeRole` trust policies, not to S3 bucket policies.",
+    "option_explanations": [
+      "`aws:PrincipalOrgID` tests the organization of the calling IAM principal. CloudTrail calls as a service principal, which is outside any organization, so this would block log delivery altogether.",
+      "`aws:SourceAccount` / `aws:SourceArn` are the keys AWS provides for exactly this: they let a resource policy allow a service principal only when it acts on behalf of specific accounts or resources.",
+      "CloudTrail delivers logs as `cloudtrail.amazonaws.com`, not as a customer role, and service-principal grants can carry conditions — that is the recommended fix.",
+      "`sts:ExternalId` is evaluated on `AssumeRole` calls against a role trust policy. It has no meaning in an S3 bucket policy and CloudTrail does not assume a role to deliver logs."
+    ],
+    "concept_tags": ["confused deputy", "S3 bucket policies", "CloudTrail", "IAM condition keys"],
+    "question_type": "conceptual",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "A payments platform on Aurora PostgreSQL must survive the loss of an entire AWS Region with minimal data loss, and also serve read traffic to users in Asia from a local copy. The team evaluates Aurora Global Database. Which statement about it is accurate?",
+    "options": [
+      "Replication to secondary Regions is asynchronous at the storage layer with latency typically under one second; a secondary cluster is read-only, and up to 10 secondary Regions are supported.",
+      "Replication is synchronous, so a write is not acknowledged until every secondary Region has it; this is what makes cross-Region failover lossless.",
+      "Secondary clusters accept writes directly and resolve conflicts with last-writer-wins, which is why the feature is limited to 5 Regions.",
+      "Replication uses the database engine's logical replication, so secondary readers add load to the primary writer proportional to write volume."
+    ],
+    "correct_index": 0,
+    "explanation": "Aurora Global Database replicates from the primary cluster to up to 10 read-only secondary clusters in other Regions using dedicated infrastructure at the storage layer, with typical latency under a second and little impact on the primary — which rules out option 4's engine-level replication and its proportional load. Replication is asynchronous, so option 2 is wrong; a planned *switchover* is lossless because Aurora waits for the secondary to catch up before promoting it, whereas an unplanned *failover* can lose the last moments of writes. Secondaries do not take writes themselves (option 3); write forwarding lets them accept write statements and forward them to the primary, which is not multi-master.",
+    "option_explanations": [
+      "Aurora Global Database uses storage-level, asynchronous replication with sub-second typical latency to up to 10 read-only secondary Regions.",
+      "Replication is asynchronous. A lossless cross-Region move is achieved by the switchover procedure, which synchronises before promoting; it is not a property of synchronous commits.",
+      "Secondary clusters are read-only. Write forwarding relays write statements to the primary rather than accepting them locally, and the limit is 10 secondary Regions, not 5.",
+      "Replication is performed by the storage layer with little performance impact on the primary, not by engine-level logical replication."
+    ],
+    "concept_tags": ["Aurora Global Database", "disaster recovery"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "An order service publishes to an SQS FIFO queue and sets `MessageDeduplicationId` to the order number. A retry storm causes the same order to be sent three times: at 09:00, at 09:03 and at 09:07. How many copies does the consumer receive, and why?",
+    "options": [
+      "One. The deduplication ID is remembered for the lifetime of the queue, so every resend of an order number is discarded.",
+      "Two. The 09:03 message falls inside the 5-minute deduplication interval of the 09:00 message and is dropped; the 09:07 message is outside it and is delivered as a new message.",
+      "Three. Deduplication only applies when content-based deduplication is enabled on the queue; an explicit `MessageDeduplicationId` is treated as a hint and not enforced.",
+      "One or three, depending on whether the consumer deleted the first message before the duplicates arrived, because deduplication stops once a message is deleted."
+    ],
+    "correct_index": 1,
+    "explanation": "FIFO deduplication works on a 5-minute window: once a message with a given deduplication ID is accepted, later sends with the same ID within 5 minutes are acknowledged but not delivered. The window is measured from the accepted message, so the 09:03 send is suppressed and the 09:07 send — seven minutes after the original — is accepted as a new message. Tracking continues even after the first message has been received and deleted, which rules out option 4. The ID is not remembered forever (option 1), and an explicit `MessageDeduplicationId` is enforced whether or not content-based deduplication (a SHA-256 of the body) is enabled (option 3). Idempotency beyond five minutes has to be handled by the consumer.",
+    "option_explanations": [
+      "Deduplication IDs are tracked for a 5-minute interval, not for the life of the queue. A resend after the interval is a new message.",
+      "Only one message with a given deduplication ID is delivered per 5-minute window. 09:03 is within the window of the 09:00 message; 09:07 is outside it and is delivered.",
+      "An explicit `MessageDeduplicationId` is enforced. Content-based deduplication is the alternative for producers that don't supply one — it computes the ID from the body.",
+      "SQS keeps tracking the deduplication ID even after the message has been received and deleted, so the consumer's actions do not change the outcome."
+    ],
+    "concept_tags": ["SQS FIFO queues", "message deduplication", "SQS decoupling"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/using-messagededuplicationid-property.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "A team wants two EC2 instances in an active/standby pair to share one EBS volume so that the standby can take over the data instantly. They plan to attach a `gp3` volume to both instances in different Availability Zones and mount it with XFS on each. Which statement is correct?",
+    "options": [
+      "The plan works as described: any EBS volume can be attached to multiple Nitro instances, and XFS handles concurrent writers safely.",
+      "The plan needs three changes: Multi-Attach is supported only on Provisioned IOPS `io1`/`io2` volumes, both instances must be in the same Availability Zone, and a cluster-aware file system is required rather than XFS.",
+      "The plan works if the volume type is changed to `io2`; cross-AZ attachment is fine because `io2` Block Express volumes are replicated across zones.",
+      "The plan cannot work at all, because an EBS volume can only ever be attached to one instance; shared storage requires EFS or FSx."
+    ],
+    "correct_index": 1,
+    "explanation": "EBS Multi-Attach lets a single Provisioned IOPS SSD (`io1` or `io2`) volume be attached to up to 16 Nitro-based instances *in the same Availability Zone*; an EBS volume never spans zones, and `gp3` does not support Multi-Attach. Every attached instance has full read/write access, so the data is only safe with a cluster-aware file system — standard file systems such as XFS and ext4 are not designed for simultaneous access by multiple servers. Option 4 is out of date: single attachment is the default, not the only option. If the real requirement is cross-AZ shared storage, EFS or FSx is the right tool, but that is a different design, not a correction of this one.",
+    "option_explanations": [
+      "Multi-Attach is restricted to `io1`/`io2` volumes, and XFS is explicitly not designed for concurrent multi-server access.",
+      "Multi-Attach requires `io1`/`io2`, up to 16 Nitro instances in the same Availability Zone, and a clustered file system to keep the data consistent.",
+      "EBS volumes are zonal; Multi-Attach works only among instances in the volume's own Availability Zone. Changing to `io2` fixes the volume type, not the topology or the file system.",
+      "A single `io1`/`io2` volume can be attached to up to 16 instances with Multi-Attach. EFS/FSx are the answer to cross-AZ sharing, which is a different requirement."
+    ],
+    "concept_tags": ["EBS", "EBS Multi-Attach", "shared storage"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volumes-multi.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "An Aurora MySQL cluster has a writer in AZ-a and three Aurora Replicas: `r1` (db.r6g.2xlarge, priority tier 1, AZ-b), `r2` (db.r6g.large, tier 0, AZ-b) and `r3` (db.r6g.4xlarge, tier 1, AZ-c). The writer's AZ fails. Which replica does Aurora promote?",
+    "options": [
+      "`r3`, because within the surviving replicas Aurora always promotes the largest instance to minimise the chance of a capacity shortfall.",
+      "`r2`, because tier 0 is the highest failover priority; size is only used to break ties between replicas that share a tier.",
+      "`r1`, because tier 1 is the highest priority and, between `r1` and `r3`, the replica in the same AZ as the previous writer's standby wins.",
+      "None: with the writer's AZ down, Aurora recreates the primary in the same AZ once it recovers, which typically takes under 10 minutes."
+    ],
+    "correct_index": 1,
+    "explanation": "Failover priority tiers run from 0 (highest priority) to 15 (lowest). Aurora promotes the replica in the highest-priority tier first; only when two or more replicas share a tier does it pick the largest, and among equal-size peers an arbitrary one. So `r2` is promoted despite being the smallest instance. Option 1 applies the size rule globally rather than within a tier. Option 4 describes what happens when a cluster has *no* replicas — the primary is recreated in the same AZ, typically in under 10 minutes — which is much slower than promoting a replica, usually under 60 seconds and often under 30.",
+    "option_explanations": [
+      "Size only breaks ties inside a priority tier. `r3` is in tier 1, and a tier-0 replica exists, so the tier decides first.",
+      "Tier 0 is the highest priority. Aurora promotes the highest-priority tier first and uses instance size only to choose between replicas sharing a tier.",
+      "Lower tier numbers are higher priority: tier 0 beats tier 1. There is no rule about AZ affinity with the old writer.",
+      "Recreating the primary in place is the path when the cluster has no Aurora Replicas. Here there are three, so one is promoted, typically within a minute."
+    ],
+    "concept_tags": ["Aurora failover priority", "RDS failover behaviour", "High Availability"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.AuroraHighAvailability.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "Clickstream events flow through a Kinesis Data Stream with default settings into a consumer that writes to a data warehouse. The warehouse loader can be down for up to three days during a migration. What must change so that no events are lost while the loader is offline?",
+    "options": [
+      "Nothing: Kinesis retains records until every registered consumer has read them, so the loader picks up where it left off.",
+      "Increase the stream's retention period from the 24-hour default to at least 72 hours; retention can be raised up to 365 days (8,760 hours), with an additional charge beyond 24 hours.",
+      "Enable enhanced fan-out for the loader, which gives it a dedicated buffer that is retained independently of the stream's retention period.",
+      "Switch the stream to on-demand mode, which retains data for 7 days automatically as part of the capacity mode."
+    ],
+    "correct_index": 1,
+    "explanation": "A Kinesis Data Stream stores records for 24 hours by default; the retention period can be raised, up to 8,760 hours (365 days), with additional charges for retention above 24 hours. Records are not held until consumed — once older than the retention period they are inaccessible whether or not a consumer read them (option 1). Enhanced fan-out changes how consumers read (a dedicated throughput pipe per registered consumer); it does not extend retention (option 3). Retention is independent of capacity mode; on-demand streams also default to 24 hours (option 4). Note that increasing retention takes effect within minutes, while decreasing it makes older records unavailable almost immediately.",
+    "option_explanations": [
+      "Retention is time-based, not consumption-based. A record older than the retention period is gone even if no consumer read it.",
+      "The default retention is 24 hours and can be increased up to 365 days (8,760 hours). Anything above 24 hours is billed extra.",
+      "Enhanced fan-out gives a consumer dedicated read throughput. It does not change how long records are retained.",
+      "Capacity mode governs throughput scaling, not retention. On-demand streams keep the same 24-hour default."
+    ],
+    "concept_tags": ["Kinesis Data Streams", "data retention", "streaming ingestion"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/streams/latest/dev/kinesis-extended-retention.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Resilient Architectures",
+    "question": "Workloads in private subnets across three Availability Zones reach the internet through one NAT gateway in a public subnet in AZ-a. During an AZ-a event every instance in AZ-b and AZ-c lost outbound connectivity. The team wants zonal resilience with the least routing configuration to maintain as they expand into more AZs. Which option fits best?",
+    "options": [
+      "Create a NAT gateway in **regional** availability mode: it expands across the Availability Zones where the VPC has workloads, needs no public subnet, and every private route table can point at the same NAT gateway ID.",
+      "Create one zonal NAT gateway per Availability Zone in a public subnet and give each AZ its own route table pointing at its local NAT gateway.",
+      "Keep the single NAT gateway but move it into a subnet that spans all three Availability Zones, so its Elastic IP is reachable from every zone.",
+      "Replace the NAT gateway with a NAT instance in an Auto Scaling group spanning three AZs, which fails over automatically."
+    ],
+    "correct_index": 0,
+    "explanation": "A standard NAT gateway is zonal: it lives in one Availability Zone, and instances in other AZs that route through it lose connectivity when that AZ fails. The classic fix is option 2 — one NAT gateway per AZ with per-AZ route tables — and it works, but it must be repeated for every new AZ. The newer regional availability mode addresses precisely that: a single regional NAT gateway automatically expands into the AZs where the VPC has network interfaces (and contracts when they leave), requires no public subnet, and can be the target of one route entry shared by subnets in every AZ. Its caveats are that expansion into a newly used AZ can take up to 60 minutes (traffic is handled cross-zone meanwhile) and that it does not support private NAT, for which zonal mode remains the choice. Subnets never span AZs (option 3). A NAT instance in an ASG (option 4) is a managed-by-you solution with lower bandwidth and its own failover latency.",
+    "option_explanations": [
+      "A regional NAT gateway follows the VPC's workloads across Availability Zones, needs no public subnet, and is addressed by a single NAT gateway ID from every private route table — high availability by default with no per-AZ routing to maintain.",
+      "This is the traditional design and it works, but it is exactly the per-AZ NAT-plus-route-table bookkeeping the regional mode removes, and it must be redone for each new AZ.",
+      "A subnet exists in exactly one Availability Zone; there is no such thing as a subnet that spans zones.",
+      "A NAT instance is self-managed, has lower throughput than a NAT gateway, and an Auto Scaling replacement still means an outage while the new instance launches and routes are updated."
+    ],
+    "concept_tags": ["NAT gateway", "regional NAT gateway", "High Availability", "VPC networking"],
+    "question_type": "conceptual",
+    "difficulty": "medium",
+    "sources": [
+      "https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateways-regional.html",
+      "https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html"
+    ]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A 100 GiB `gp2` volume backing a database runs at its 300 IOPS baseline most of the day and exhausts its burst credits during a nightly batch that needs a sustained 8,000 IOPS for two hours. Which change meets the requirement at the lowest cost?",
+    "options": [
+      "Grow the `gp2` volume to 2,667 GiB so that its baseline (3 IOPS per GiB) reaches 8,000 IOPS.",
+      "Migrate the volume to `gp3` at its current 100 GiB size and provision 8,000 IOPS; `gp3` allows up to 500 IOPS per GiB, so 100 GiB supports up to 50,000 IOPS.",
+      "Migrate the volume to `gp3`, but grow it to at least 160 GiB first, because `gp3` needs 160 GiB before any IOPS can be provisioned above the 3,000 baseline.",
+      "Migrate the volume to `io2` and provision 8,000 IOPS; General Purpose volumes cannot sustain more than 3,000 IOPS without bursting."
+    ],
+    "correct_index": 1,
+    "explanation": "`gp3` decouples performance from size: every volume gets a 3,000 IOPS / 125 MiB/s baseline, and IOPS can be provisioned up to 80,000 at a ratio of 500 IOPS per GiB. A 100 GiB volume can therefore be provisioned to 8,000 IOPS (it could go to 50,000) with no size change, and `gp3` sustains provisioned performance indefinitely — it has no burst credits. Option 1 works but pays for ~2.5 TiB of storage to buy IOPS. Option 3 misreads the ratio: 160 GiB is the size at which the *maximum* 80,000 IOPS becomes reachable (500 × 160), not a floor for provisioning anything. Option 4 is a more expensive volume class for a need `gp3` meets; its premise about General Purpose volumes describes `gp2`, not `gp3`.",
+    "option_explanations": [
+      "Scaling `gp2` by size does reach 8,000 IOPS at 2,667 GiB, but it buys 26× the storage to get the IOPS — `gp3` provisions IOPS independently of size.",
+      "`gp3` provisions IOPS independently of size at up to 500 IOPS per GiB (80,000 max). 100 GiB supports 8,000 IOPS with room to spare, sustained without burst credits.",
+      "160 GiB is the size at which the 80,000 IOPS ceiling becomes reachable (500 IOPS/GiB × 160 GiB). Any `gp3` size can provision above the 3,000 baseline within that ratio.",
+      "`gp3` sustains its provisioned IOPS with no bursting, so `io2` is unnecessary cost here. The 3,000-IOPS-with-burst limit is a `gp2` characteristic."
+    ],
+    "concept_tags": ["EBS", "Volume Types", "IOPS", "storage cost optimization"],
+    "question_type": "detail_recall",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/ebs/latest/userguide/general-purpose.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A DynamoDB table in provisioned mode must serve 100 eventually consistent reads per second of 6 KB items and 50 writes per second of 1.5 KB items. What is the minimum provisioned capacity?",
+    "options": [
+      "100 RCU and 50 WCU — one unit per operation per second.",
+      "200 RCU and 100 WCU — 6 KB items need two 4 KB read units each, and 1.5 KB items need two 1 KB write units each.",
+      "100 RCU and 100 WCU — eventually consistent reads halve the RCU cost, and writes are rounded up to the next 1 KB.",
+      "150 RCU and 75 WCU — capacity scales with item size: 1.5 KB items cost 1.5 units and 6 KB items cost 1.5 units."
+    ],
+    "correct_index": 2,
+    "explanation": "One read capacity unit is one strongly consistent read per second of an item up to 4 KB, or two eventually consistent reads per second; item size is rounded up to the next 4 KB. A 6 KB item rounds to 8 KB = 2 units for a strongly consistent read, or 1 unit eventually consistent, so 100 eventually consistent reads per second need 100 RCU. One write capacity unit is one write per second of an item up to 1 KB, rounded up to the next 1 KB; a 1.5 KB item rounds to 2 KB = 2 WCU per write, so 50 writes per second need 100 WCU. Option 2 forgets the eventual-consistency halving; option 4 forgets the rounding; option 1 ignores item size on both sides.",
+    "option_explanations": [
+      "Item size matters: a 1.5 KB write rounds up to 2 KB and costs 2 WCU, so 50 writes/s need 100 WCU. The read side happens to be right, for the wrong reason.",
+      "The read count is doubled twice over: 6 KB → 8 KB is 2 RCU for a *strongly* consistent read, but eventually consistent reads cost half, so it is 1 RCU each. The write side (100 WCU) is correct.",
+      "Reads: 6 KB rounds to 8 KB = 2 RCU strongly consistent = 1 RCU eventually consistent → 100 RCU. Writes: 1.5 KB rounds to 2 KB = 2 WCU → 100 WCU.",
+      "Capacity units are integers; item sizes round *up* to the next 4 KB (reads) or 1 KB (writes), so fractional units like 1.5 are never charged."
+    ],
+    "concept_tags": ["DynamoDB capacity units", "provisioned throughput", "read consistency"],
+    "question_type": "detail_recall",
+    "difficulty": "hard",
+    "sources": ["https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/ProvisionedThroughput.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A team runs 12 critical broker nodes that must not share underlying hardware, spread across the three Availability Zones of a Region. They create one **spread** placement group and launch all 12 instances into it, 4 per AZ, and it works. Later they try to add a 13th, 14th … up to 24 instances, still balanced across the three AZs, and launches begin to fail. Why?",
+    "options": [
+      "A spread placement group is limited to a single Availability Zone, so the moment instances were requested in a second AZ the group was already invalid.",
+      "A rack-level spread placement group supports at most seven running instances per Availability Zone; 8 per AZ exceeds it, so the failing launches are the eighth in each zone.",
+      "Spread placement groups support at most 12 instances in total, regardless of how many Availability Zones they span.",
+      "The failures are capacity errors because spread groups require all instances to be launched in a single request; adding instances later is not supported."
+    ],
+    "correct_index": 1,
+    "explanation": "A rack-level spread placement group can span multiple Availability Zones in the same Region but supports a maximum of seven running instances in each AZ; across three AZs that is 21 instances, and an eighth launch in any one AZ fails. The fix is to use more than one spread placement group. Option 1 confuses spread with *cluster* groups, which cannot span AZs. Option 3 invents a total cap — the limit is per AZ, not per group. Option 4 describes advice that applies to cluster groups (launch in one request to avoid capacity errors); spread groups are explicitly suited to launching instances over time. If the requirement were larger groups of instances isolated by rack, a *partition* placement group (up to seven partitions per AZ, instance count limited only by account limits) would be the tool.",
+    "option_explanations": [
+      "Spread placement groups can span multiple Availability Zones in a Region. Single-AZ is a *cluster* placement group constraint.",
+      "The limit is seven running instances per Availability Zone per spread group. With 8 requested per AZ, the eighth launch in each zone fails; use additional spread groups.",
+      "There is no total-instance cap on a spread group; the constraint is seven per Availability Zone, so a three-AZ group can hold 21.",
+      "Launching everything in one request is guidance for cluster placement groups. Spread groups are designed for adding instances over time."
+    ],
+    "concept_tags": ["EC2 placement groups", "spread placement group", "High Availability"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-strategies.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A genomics pipeline produces single files of 12 TB that must be stored as one object each in Amazon S3, uploaded from EC2 with the AWS CLI or SDK. Which statement is correct?",
+    "options": [
+      "Impossible: an S3 object cannot exceed 5 TB, so each file must be split into at least three objects.",
+      "Possible with multipart upload: a single `PUT` is limited to 5 GB, but multipart upload supports objects up to 50 TB, using up to 10,000 parts of 5 MiB to 5 GiB each.",
+      "Possible only through the S3 console, which accepts single objects up to 160 GB per upload and chains uploads into one object.",
+      "Possible with a single `PUT` as long as the request uses S3 Transfer Acceleration, which lifts the 5 GB single-operation limit."
+    ],
+    "correct_index": 1,
+    "explanation": "Single-operation uploads (`PUT`) are capped at 5 GB. Multipart upload assembles an object from 1 to 10,000 parts of 5 MiB to 5 GiB each (the last part may be smaller), giving a maximum object size of 50 TB (48.8 TiB); AWS recommends multipart from about 100 MB and, for objects above 5 TB, the S3 Transfer Manager in the SDKs or CLI. The former 5 TB object limit (option 1) no longer applies. The console's 160 GB limit is per object uploaded through the browser (option 3). Transfer Acceleration speeds up transfers over long distances via edge locations; it does not change any size limit (option 4).",
+    "option_explanations": [
+      "The 5 TB ceiling is the old limit. S3 objects can now be up to 50 TB via multipart upload, so a 12 TB file can be one object.",
+      "Multipart upload allows up to 10,000 parts of 5 MiB–5 GiB each, for objects up to 50 TB (48.8 TiB). A single `PUT` remains limited to 5 GB.",
+      "The console uploads a single object up to 160 GB. It does not chain uploads, and it is not the path for multi-terabyte objects.",
+      "Transfer Acceleration routes uploads through edge locations for speed; the 5 GB single-`PUT` limit is unchanged."
+    ],
+    "concept_tags": ["S3 multipart upload", "S3 object size limits", "large object uploads"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": [
+      "https://docs.aws.amazon.com/AmazonS3/latest/userguide/upload-objects.html",
+      "https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html"
+    ]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design High-Performing Architectures",
+    "question": "A telemetry producer writes 5,000 records per second, each 500 bytes, to a Kinesis Data Stream in **provisioned** mode. What is the minimum number of shards, and which limit decides it?",
+    "options": [
+      "3 shards — total ingest is 2.5 MB/s and each shard accepts 1 MB/s, rounded up.",
+      "5 shards — each shard accepts at most 1,000 records per second, and 5,000 records/s exceeds the 2.5 MB/s figure as the binding constraint.",
+      "1 shard — a shard accepts up to 10 MiB per second and 2.5 MB/s fits comfortably.",
+      "10 shards — a shard accepts 1 MB/s of writes but only 500 records per second."
+    ],
+    "correct_index": 1,
+    "explanation": "In provisioned mode each shard supports writes of up to 1 MB per second *or* 1,000 records per second, whichever is reached first, and reads of up to 2 MB per second. 5,000 records/s × 500 bytes = 2.5 MB/s, which would need 3 shards by bandwidth — but the record-rate limit needs 5,000 ÷ 1,000 = 5 shards, and both limits must hold, so 5 is the minimum. Small records are commonly bound by the record count rather than by bytes. Option 3 confuses the per-shard write rate with the 10 MiB maximum size of a *single record* / `PutRecords` request; option 4 misstates the record limit.",
+    "option_explanations": [
+      "Bandwidth alone would allow 3 shards, but each shard also caps writes at 1,000 records/s. With 5,000 records/s the record rate, not the byte rate, is the binding limit.",
+      "A shard accepts up to 1 MB/s or 1,000 records/s. 5,000 records/s needs 5 shards on the record limit even though 2.5 MB/s would fit in 3.",
+      "10 MiB is the maximum payload of one record or one `PutRecords` request, not a per-shard sustained write rate, which is 1 MB/s.",
+      "The per-shard record limit is 1,000 records per second, so 5 shards suffice, not 10."
+    ],
+    "concept_tags": ["Kinesis Data Streams", "shard capacity", "streaming ingestion"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/streams/latest/dev/service-sizes-and-limits.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "Regulatory archives are stored in S3 Glacier Deep Archive. Auditors occasionally request a file and accept up to a business day's delay; once a year a legal team needs a file within an hour. Which retrieval options cover both needs at the lowest cost?",
+    "options": [
+      "Standard retrieval (within 12 hours) for auditors and Expedited retrieval (1–5 minutes) for the legal team; both are available from Deep Archive.",
+      "Standard retrieval (within 12 hours) for auditors; for the one-hour case, Deep Archive offers no Expedited tier, so those files must be kept in a class such as S3 Glacier Flexible Retrieval (Expedited 1–5 minutes) or S3 Glacier Instant Retrieval instead.",
+      "Bulk retrieval (within 48 hours) for both, since Bulk is free for Deep Archive and a business day comfortably fits.",
+      "Standard retrieval for auditors and, for the legal team, purchase Provisioned Capacity, which guarantees Expedited retrievals from any Glacier class."
+    ],
+    "correct_index": 1,
+    "explanation": "Deep Archive supports Standard retrieval (typically within 12 hours) and Bulk (within 48 hours), and Expedited is *not available* for it. Expedited retrieval (1–5 minutes for objects under 250 MB) exists only for S3 Glacier Flexible Retrieval and the Intelligent-Tiering Archive Access tier, and Provisioned Capacity only guarantees Expedited capacity for Flexible Retrieval — it cannot add a tier Deep Archive does not have (option 4). So the files that might be needed within an hour must live in a class with a fast path: Flexible Retrieval with Expedited, or Glacier Instant Retrieval for millisecond access at a higher storage price. Bulk (option 3) is 48 hours for Deep Archive, which is not a business day, and Bulk is free for Flexible Retrieval, not Deep Archive.",
+    "option_explanations": [
+      "Expedited retrieval is not available for S3 Glacier Deep Archive; it exists for Flexible Retrieval only.",
+      "Deep Archive offers Standard (within 12 hours) and Bulk (within 48 hours) but no Expedited option. A one-hour need requires a different class — Flexible Retrieval with Expedited, or Glacier Instant Retrieval.",
+      "Bulk from Deep Archive takes up to 48 hours, beyond a business day, and it is free only for Flexible Retrieval and Intelligent-Tiering.",
+      "Provisioned Capacity reserves Expedited capacity for Flexible Retrieval. It cannot enable Expedited on Deep Archive, which has no such tier."
+    ],
+    "concept_tags": ["S3 Glacier retrieval options", "S3 storage classes", "archive storage"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AmazonS3/latest/userguide/restoring-objects-retrieval-options.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "A bucket holds 500 million thumbnail images averaging 20 KB, with unpredictable access patterns. An engineer proposes moving them to S3 Intelligent-Tiering so that rarely viewed thumbnails automatically drop to cheaper tiers. What is the outcome?",
+    "options": [
+      "Objects under 128 KB are not monitored and are not eligible for automatic tiering, so every thumbnail stays in the Frequent Access tier at roughly S3 Standard rates; nothing is saved.",
+      "Each thumbnail moves to the Infrequent Access tier after 30 days without access and to Archive Instant Access after 90, cutting the storage bill substantially.",
+      "The thumbnails tier as expected, but a per-GB retrieval fee applies each time one is served from a lower tier, which for images served on a website will exceed the savings.",
+      "The move is rejected: Intelligent-Tiering has a 128 KB minimum object size and refuses to store smaller objects."
+    ],
+    "correct_index": 0,
+    "explanation": "S3 Intelligent-Tiering monitors objects and moves them to the Infrequent Access tier after 30 consecutive days without access and to Archive Instant Access after 90 — but objects smaller than 128 KB are not monitored and not eligible for automatic tiering; they are always stored in the Frequent Access tier. So 20 KB thumbnails never leave the Frequent Access tier and the move saves nothing (there is no monitoring charge for those small objects either, but no benefit). Intelligent-Tiering has no retrieval fees (option 3) and no minimum billable object size — it stores small objects, it just doesn't tier them (option 4). For small-object cost control the levers are aggregating objects or a different class.",
+    "option_explanations": [
+      "Intelligent-Tiering does not monitor or tier objects smaller than 128 KB; they remain in the Frequent Access tier, so 20 KB thumbnails gain nothing from the move.",
+      "The 30-day / 90-day tiering applies only to objects of 128 KB or larger. 20 KB objects are never moved out of the Frequent Access tier.",
+      "Intelligent-Tiering charges no retrieval fees. The problem is that these objects would not tier at all.",
+      "There is no minimum object size for storing in Intelligent-Tiering. Objects under 128 KB are accepted; they are simply not monitored or tiered."
+    ],
+    "concept_tags": ["S3 Intelligent-Tiering", "S3 storage classes", "storage cost optimization"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": [
+      "https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html",
+      "https://docs.aws.amazon.com/AmazonS3/latest/userguide/storage-class-intro.html"
+    ]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "A rendering farm runs on Spot Instances with the interruption behaviour set to `terminate`. Each frame takes about 90 seconds. The team wants to checkpoint work before an interruption. Which mechanism is available, and how much warning does it give?",
+    "options": [
+      "A Spot Instance interruption notice is published two minutes before EC2 stops or terminates the instance, as an EventBridge event and in the instance metadata (`/spot/instance-action`); it is emitted on a best-effort basis.",
+      "A Spot Instance interruption notice is published ten minutes before termination via CloudWatch Logs, which gives ample time to finish the current frame and upload it.",
+      "There is no warning: Spot interruptions are immediate, so work must be checkpointed continuously to S3 after every frame.",
+      "The warning is only available if the interruption behaviour is `hibernate`, in which case the two-minute notice lets the instance flush memory to EBS."
+    ],
+    "correct_index": 0,
+    "explanation": "EC2 issues a Spot Instance interruption notice two minutes before it stops or terminates a Spot Instance. It is delivered as an `EC2 Spot Instance Interruption Warning` event in EventBridge and as the `instance-action` item in the instance metadata, which AWS recommends polling every five seconds; notices are emitted on a best-effort basis, so an application should still tolerate an unannounced interruption. With `hibernate` you get the notice but *not* the two-minute lead, because hibernation starts immediately (option 4 has it backwards). Ten minutes and CloudWatch Logs (option 2) are invented; \"no warning\" (option 3) ignores the notice, though continuous checkpointing is still sound practice given the best-effort caveat. With 90-second frames, two minutes is enough to finish the current frame and upload it.",
+    "option_explanations": [
+      "The interruption notice arrives two minutes ahead of a stop or terminate, via EventBridge and the instance metadata `instance-action` item, on a best-effort basis.",
+      "The lead time is two minutes, not ten, and the channels are EventBridge and instance metadata, not CloudWatch Logs.",
+      "Spot interruptions are announced two minutes in advance (best effort). Checkpointing is still wise, but there is a warning to act on.",
+      "The notice is available for all interruption behaviours. `hibernate` is the one case that *loses* the two-minute lead, since hibernation begins immediately."
+    ],
+    "concept_tags": ["EC2 Spot Instances", "Spot interruption notice", "EC2 pricing models"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": ["https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-instance-termination-notices.html"]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "A company has a steady baseline of compute spend but expects to move workloads from `m5` to Graviton `m7g` instances, shift some services from EC2 to Fargate, and open a second Region within the next year. Which commitment covers all of these changes while still discounting the baseline?",
+    "options": [
+      "An EC2 Instance Savings Plan, which offers the deepest discount (up to 72%) and applies to any instance family in the chosen Region, including Fargate tasks launched there.",
+      "A Compute Savings Plan, which applies to EC2 usage regardless of instance family, size, OS, tenancy or Region, and also to Fargate and Lambda, at up to 66% off On-Demand.",
+      "Standard Reserved Instances for `m5` in the current Region, which can be exchanged for `m7g` and re-scoped to another Region as the migration proceeds.",
+      "A Compute Savings Plan for the EC2 portion plus a separate EC2 Instance Savings Plan for Fargate, since Fargate is priced per vCPU-hour rather than per instance."
+    ],
+    "correct_index": 1,
+    "explanation": "Compute Savings Plans are the flexible type: they apply to EC2 usage regardless of instance family, size, OS, tenancy *or Region*, and also to Fargate and Lambda, for up to 66% off On-Demand. An EC2 Instance Savings Plan (option 1) buys a deeper discount — up to 72% — in exchange for committing to a specific instance family in a specific Region; changing family (m5 → m7g), Region, or moving to Fargate all fall outside it. Standard RIs (option 3) cannot be exchanged, and RIs do not move between Regions; Convertible RIs allow family changes but stay in their Region and never cover Fargate. Option 4 misassigns Fargate, which is covered by Compute Savings Plans, not EC2 Instance plans.",
+    "option_explanations": [
+      "An EC2 Instance Savings Plan commits to one instance family in one Region and does not cover Fargate; its higher discount is the price of that inflexibility.",
+      "A Compute Savings Plan follows the spend across instance families, Regions, operating systems and tenancy, and also covers Fargate and Lambda — every change in the scenario stays discounted.",
+      "Standard RIs cannot be exchanged for a different family and RIs are Regional; even Convertible RIs stay in their Region and never apply to Fargate.",
+      "Fargate is covered by Compute Savings Plans. EC2 Instance Savings Plans apply to EC2 instance usage only."
+    ],
+    "concept_tags": ["Savings Plans", "Reserved vs Savings Plans vs Spot", "EC2 pricing models"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": [
+      "https://docs.aws.amazon.com/savingsplans/latest/userguide/plan-types.html",
+      "https://docs.aws.amazon.com/savingsplans/latest/userguide/what-is-savings-plans.html"
+    ]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "A team keeps end-of-project EBS snapshots for compliance and rarely restores them. To reduce cost they move the snapshots to the EBS Snapshots Archive tier. Two weeks later a project is reopened and the team **permanently restores** one 200 GiB snapshot. What are the cost consequences?",
+    "options": [
+      "None beyond the restore fee: the archive tier has no minimum retention, and restoring simply moves the snapshot back to the standard tier.",
+      "The snapshot is billed for the remainder of the 90-day minimum archive period on a pro-rated basis, plus a per-GB restore charge; a *temporary* restore would have avoided the early-restore charge.",
+      "The restore is refused until the 90-day minimum has elapsed; snapshots in the archive tier are immutable for that period.",
+      "The snapshot must be restored incrementally from its parent chain, so the team also pays standard-tier storage for every ancestor snapshot."
+    ],
+    "correct_index": 1,
+    "explanation": "Archiving converts an incremental snapshot into a full snapshot stored in the archive tier, which is designed for snapshots kept 90 days or longer. The minimum archive period is 90 days: deleting or permanently restoring before then incurs a pro-rated charge for the remaining days, and every restore is billed per GB restored. A *temporary* restore — which leaves the archived copy in place for a chosen period — does not trigger the early-restore charge, though both copies are billed while the temporary copy exists. Restores are never refused (option 3), and because archived snapshots are full copies there is no parent chain to pay for (option 4).",
+    "option_explanations": [
+      "The archive tier has a 90-day minimum. Permanently restoring at two weeks bills the remaining ~76 days pro rata, on top of the per-GB restore fee.",
+      "Early permanent restore or deletion within 90 days is charged for the remaining days of the minimum period, plus the per-GB restore charge. A temporary restore avoids the early charge.",
+      "Archived snapshots can be restored at any time; the 90-day minimum is a billing rule, not a lock.",
+      "Archiving converts the snapshot to a full snapshot, so it is self-contained and restores without any ancestor snapshots."
+    ],
+    "concept_tags": ["EBS snapshot cost", "EBS Snapshots Archive", "storage cost optimization"],
+    "question_type": "detail_recall",
+    "difficulty": "medium",
+    "sources": [
+      "https://docs.aws.amazon.com/ebs/latest/userguide/snapshot-archive.html",
+      "https://docs.aws.amazon.com/ebs/latest/userguide/snapshot-archive-pricing.html"
+    ]
+  },
+  {
+    "certification": "AWS Solutions Architect Associate (SAA-C03)",
+    "domain": "Design Cost-Optimized Architectures",
+    "question": "Monthly database exports (about 2 GB each) must be kept for exactly 120 days and then deleted; they are read at most once, usually never, but when needed must be available within milliseconds. Which storage class minimises cost without paying for storage the object no longer uses?",
+    "options": [
+      "S3 Glacier Deep Archive — the cheapest per-GB rate, and 120 days is comfortably within its minimum storage duration.",
+      "S3 Glacier Instant Retrieval — millisecond access, and its 90-day minimum storage duration is shorter than the 120-day lifetime, so expiry at day 120 incurs no early-deletion charge.",
+      "S3 Glacier Flexible Retrieval — cheaper than Instant Retrieval, with a 90-day minimum that fits the lifetime and retrieval in milliseconds via Expedited.",
+      "S3 Standard-IA — its 30-day minimum is the shortest of the infrequent-access classes, and the objects are large enough to avoid the 128 KB minimum billable size."
+    ],
+    "correct_index": 1,
+    "explanation": "The requirement is millisecond access, which excludes the two archival classes that require a restore before access: Flexible Retrieval (minutes to hours even with Expedited — never milliseconds) and Deep Archive (hours). Deep Archive's minimum storage duration is 180 days, so a 120-day lifetime would be billed for 60 days the object never used (option 1). Among millisecond-access classes with per-GB retrieval fees, Glacier Instant Retrieval is the cheapest for data accessed about once a quarter or less; its 90-day minimum is within the 120-day lifetime, so expiring on day 120 costs nothing extra. Standard-IA (option 4) also fits the minimum but stores at a higher per-GB rate; its 30-day minimum is an advantage only for objects kept less than 90 days.",
+    "option_explanations": [
+      "Deep Archive requires a restore taking hours — not milliseconds — and its minimum storage duration is 180 days, so a 120-day object is billed for 60 unused days.",
+      "Glacier Instant Retrieval offers millisecond access with a 90-day minimum storage duration. Deleting at day 120 is past the minimum, so no early-deletion charge applies.",
+      "Flexible Retrieval objects must be restored before access; Expedited takes minutes, not milliseconds. It fails the access requirement.",
+      "Standard-IA meets the access and minimum-duration requirements but at a higher storage price than Glacier Instant Retrieval for data read this rarely."
+    ],
+    "concept_tags": ["S3 storage classes", "minimum storage duration", "storage cost optimization"],
+    "question_type": "detail_recall",
+    "difficulty": "hard",
+    "sources": [
+      "https://docs.aws.amazon.com/AmazonS3/latest/userguide/storage-class-intro.html",
+      "https://docs.aws.amazon.com/AmazonS3/latest/userguide/restoring-objects-retrieval-options.html"
+    ]
+  }
+]
